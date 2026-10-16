@@ -98,16 +98,7 @@ func (a *Application) startAddonPinSweep(ctx context.Context, store pins.Store) 
 	if gw == nil || gw.Manager == nil || store == nil {
 		return
 	}
-	run := func() {
-		ids, err := gw.Manager.InstalledIDs(ctx)
-		if err != nil {
-			return // no answer: a sweep must not change anything
-		}
-		present := append(ids, builtin.IDs()...)
-		if _, err := pins.Sweep(ctx, store, present, time.Now().UTC()); err != nil {
-			xlog.Warn("addon pin sweep failed", "error", err)
-		}
-	}
+	run := func() { sweepAddonPins(ctx, store, gw.Manager, time.Now().UTC()) }
 	if db := a.authDB; db != nil {
 		go advisorylock.RunLeaderLoop(ctx, db, advisorylock.KeyAddonPinSweep, addonPinSweepEvery, run)
 		return
@@ -124,4 +115,22 @@ func (a *Application) startAddonPinSweep(ctx context.Context, store pins.Store) 
 			}
 		}
 	}()
+}
+
+// installedLister is the part of the add-on manager the sweep reads.
+type installedLister interface {
+	InstalledIDs(ctx context.Context) ([]string, error)
+}
+
+// sweepAddonPins runs one retention sweep. The built-in IDs are always present.
+// When the owner cannot answer, nothing happens: an outage must not expire pins.
+func sweepAddonPins(ctx context.Context, store pins.Store, owner installedLister, now time.Time) {
+	ids, err := owner.InstalledIDs(ctx)
+	if err != nil {
+		return
+	}
+	present := append(ids, builtin.IDs()...)
+	if _, err := pins.Sweep(ctx, store, present, now); err != nil {
+		xlog.Warn("addon pin sweep failed", "error", err)
+	}
 }
