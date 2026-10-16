@@ -3,8 +3,10 @@ package pins
 
 import (
 	"context"
+	"fmt"
 	"time"
 
+	"github.com/mudler/LocalAI/core/services/advisorylock"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -14,8 +16,12 @@ import (
 type GormStore struct{ db *gorm.DB }
 
 func NewGormStore(db *gorm.DB) (*GormStore, error) {
-	if err := db.AutoMigrate(&Pin{}, &SeedRun{}); err != nil {
-		return nil, err
+	// Several frontends migrate the shared database at startup: take the
+	// schema-migrate lock like every other shared table does.
+	if err := advisorylock.WithLockCtx(context.Background(), db, advisorylock.KeySchemaMigrate, func() error {
+		return db.AutoMigrate(&Pin{}, &SeedRun{})
+	}); err != nil {
+		return nil, fmt.Errorf("migrating addon pin tables: %w", err)
 	}
 	return &GormStore{db: db}, nil
 }
