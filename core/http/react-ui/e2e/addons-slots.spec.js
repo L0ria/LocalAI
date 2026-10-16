@@ -246,7 +246,7 @@ test.describe('Host UI slots', () => {
     await context.close()
   })
 
-  test('slots: the navigation slot adds its entry after the add-on navigation links of the Build hub', async ({ browser }) => {
+  test('slots: the navigation slot adds its entry below the tile grid of the Add-ons drawer', async ({ browser }) => {
     const { context, page } = await browserAs(browser, 'member')
     await mockChat(page)
     await page.goto('/app/addons')
@@ -254,9 +254,15 @@ test.describe('Host UI slots', () => {
     await expect(nav).toBeVisible({ timeout: 25_000 })
     const link = nav.getByTestId('fx-nav')
     await expect(link).toHaveText('Slots home')
-    // It is inside the second-row navigation landmark, after the host links.
-    const inside = await link.evaluate(n => Boolean(n.closest('nav.hub-subnav')))
+    // It is in the slot container of the drawer page, after the host tiles.
+    const inside = await link.evaluate(n => Boolean(n.closest('.ad-nav-slot')))
     expect(inside).toBe(true)
+    const below = await page.evaluate(() => {
+      const tiles = document.querySelector('.ad-tiles')
+      const slot = document.querySelector('.ad-nav-slot')
+      return Boolean(tiles.compareDocumentPosition(slot) & Node.DOCUMENT_POSITION_FOLLOWING)
+    })
+    expect(below).toBe(true)
     await link.click()
     await expect(page).toHaveURL(/\/app\/addons\/slots\/home$/)
     await shoot(page, 'slots-nav-entry')

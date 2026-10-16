@@ -528,3 +528,4 @@ Changes of 2026-10-16, after the pre-flight review of the plan. One line each, w
 - Section "Rollback": the legacy switch restores the old sidebar and hub tab; the generator redirects do not depend on it (scan C13).
 - Test plan and gate table: the tile of a packaged add-on shows for anyone with the `addons` feature and its page shows the off notice; tests added for the seed, the host operations, the platforms and the inventory (scan C19, C22, C15).
 - Plan only: pin store keeps the owner and the missing mark in the file (scan C2); the two-frontends test moves to the service task (scan C3); `ClipInput` is built in the Voice library task (scan C8); the suite inventory is updated by Tasks 1, 4 and 9 (scan C15).
+- Section "Extension points": the `app.nav` slot is drawn on the Add-ons drawer page below the tile grid, and in the Build hub row only under the legacy switch (Task 6 review, maintainer ruling).

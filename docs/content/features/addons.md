@@ -1544,7 +1544,7 @@ belong to the user, follow the user across browsers, and are capped at eight in 
 sidebar. A pin whose add-on is stopped is muted and opens the detail view; a pin whose
 add-on was removed or is hidden is not drawn. An empty section is not drawn. Operators who
 need the previous sidebar can set `LOCALAI_LEGACY_NAVIGATION=true` (flag
-`--legacy-navigation`). The switch is a rollback aid and is removed one release after the
+`--legacy-navigation`); it also brings back the Add-ons tab of the Build hub, which then opens `/app/addons`. The switch is a rollback aid and is removed one release after the
 new navigation ships; the UI reads it from the `addon_navigation` key of `/api/features`.
 
 A tab is addressed as `/app/addons?tab=browse|installed|libraries`. The management link of
@@ -2120,7 +2120,7 @@ text, history, the model or any host state.
 |---|---|---|
 | `chat.composer.actions` | In an overflow menu next to the attach buttons of the composer. Actions of placement `composer` are menu items. Components are drawn in the menu. | `conversationId`, `disabled` |
 | `chat.message.actions` | In the action row of each message. Actions of placement `message` are icon buttons. | `conversationId`, `messageId`, `role` |
-| `app.nav` | Not drawn by the drawer navigation. The slot kept its place for add-ons that declare it. | none |
+| `app.nav` | On the Add-ons page, below the tile grid. Under the legacy switch: at the end of the second navigation row of the Build hub's Add-ons tab, after the links of `ui.navigation`. | none |
 | `settings.sections` | At the end of the Settings page, one section for each component, under a heading with the title and icon of the add-on. | none |
 
 `messageId` is the position of the message in the conversation. `role` is `user`,

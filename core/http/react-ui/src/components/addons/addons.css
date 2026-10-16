@@ -217,3 +217,4 @@
 .nav-item--muted { opacity: 0.55; }
 .nav-item--sub { padding-inline-start: 2.25rem; }
 @media (max-width: 480px) { .ad-tiles { grid-template-columns: minmax(0, 1fr); } }
+.ad-nav-slot { margin-top: var(--dk-space-4, 16px); }

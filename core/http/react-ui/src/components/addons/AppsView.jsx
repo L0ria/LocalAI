@@ -11,6 +11,8 @@ import { navigationItems } from '../../addons/registryState'
 import { useAuth } from '../../context/AuthContext'
 import { FEATURE_ADDONS } from '../../utils/capabilities'
 import SideSheet from '../SideSheet'
+import AddonSlot from '../../addons/AddonSlot'
+import { useHubAuth } from '../hub/useHubAuth'
 import AddonTile from './AddonTile'
 import { useNavigation } from '../../context/NavigationContext'
 import { buildTiles, filterTiles, resolvePins } from '../../utils/addonTiles'
@@ -95,6 +97,8 @@ export default function AppsView({ api }) {
   }, [actions, api])
 
   const nav = useNavigation()
+  // Under the legacy switch the Build hub row draws the app.nav slot instead.
+  const legacy = useHubAuth().features.addon_navigation === false
   const [query, setQuery] = useState('')
   const [params, setParams] = useSearchParams()
   const [limit, setLimit] = useState(false)
@@ -164,6 +168,7 @@ export default function AppsView({ api }) {
           ))}
         </ul>
       )}
+      {!legacy && <div className="ad-nav-slot"><AddonSlot slot="app.nav" context={null} /></div>}
       {detail && (
         <SideSheet title={titleOf(detail)} onClose={closeDetail} closeLabel={t('drawer.close')} testId="addon-detail">
           {detail.app
