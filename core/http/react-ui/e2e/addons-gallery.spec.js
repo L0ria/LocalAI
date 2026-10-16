@@ -23,6 +23,8 @@ async function shoot(page, name) {
 }
 
 const tab = (page, name) => page.getByRole('tab', { name })
+// The start, stop and tool controls of an add-on live in the detail sheet of the drawer.
+const detail = (page, id) => page.getByTestId('addon-detail').locator(`[data-app="${id}"]`)
 
 test.describe('Add-ons: apps', () => {
   test('apps: lists enabled apps with state chips, the icon route and Open only for a main page', async ({ page }) => {
@@ -30,15 +32,15 @@ test.describe('Add-ons: apps', () => {
     await mockAddons(page, { apps: [app(), HEADLESS, app({ id: 'broken', name: 'broken', title: 'Broken', state: 'failed', icon: undefined, mainPage: undefined, hasUI: true })] })
     await page.goto('/app/addons')
     const notes = page.locator('[data-app="notes"]')
-    await expect(notes.getByRole('heading', { name: 'Notes' })).toBeVisible()
-    await expect(notes.getByRole('img', { name: 'State: Running' })).toBeVisible()
-    await expect(notes.getByRole('link', { name: 'Open' })).toHaveAttribute('href', '/app/addons/notes/home')
+    await expect(notes.locator('.ad-tile__title')).toHaveText('Notes')
+    await expect(notes.locator('.ad-tile__state')).toHaveText('Running')
+    await expect(notes.getByRole('link')).toHaveAttribute('href', '/app/addons/notes/home')
     await expect(notes.locator('img.ad-icon')).toHaveAttribute('src', '/api/addons/apps/notes/icon?generation=3')
-    await expect(page.locator('[data-app="broken"]').getByRole('img', { name: 'State: Failed' })).toBeVisible()
-    await expect(page.locator('[data-app="broken"]').getByRole('link', { name: 'Open' })).toHaveCount(0)
-    await expect(page.locator('[data-app="indexer"]').getByRole('link', { name: 'Open' })).toHaveCount(0)
+    await expect(page.locator('[data-app="broken"] .ad-tile__state')).toHaveText('Stopped, failed')
+    await expect(page.locator('[data-app="broken"]').getByRole('link')).toHaveCount(0)
+    await expect(page.locator('[data-app="indexer"]').getByRole('link')).toHaveCount(0)
     // Every image is served by the host itself, never from another origin.
-    const sources = await page.locator('.ad-grid img').evaluateAll(imgs => imgs.map(i => new URL(i.src).origin))
+    const sources = await page.locator('.ad-tiles img').evaluateAll(imgs => imgs.map(i => new URL(i.src).origin))
     expect(new Set(sources)).toEqual(new Set([new URL(page.url()).origin]))
     await shoot(page, 'apps-wide')
   })
@@ -46,8 +48,8 @@ test.describe('Add-ons: apps', () => {
   test('apps: a headless add-on shows its tools and no Open action', async ({ page }) => {
     await signIn(page, MEMBER, { addons: true })
     await mockAddons(page, { apps: [HEADLESS] })
-    await page.goto('/app/addons')
-    const card = page.locator('[data-app="indexer"]')
+    await page.goto('/app/addons?detail=indexer')
+    const card = detail(page, 'indexer')
     await expect(card.getByTestId('app-tools')).toContainText('3 tools')
     await expect(card.getByTestId('app-tools')).toContainText('query, export, reindex')
     await expect(card.getByText('Runs in the background')).toBeVisible()
@@ -63,13 +65,18 @@ test.describe('Add-ons: apps', () => {
     await expect(page.getByRole('button', { name: /^(Start|Stop)$/ })).toHaveCount(0)
     await expect(page.getByRole('link', { name: 'Manage' })).toHaveCount(0)
     await expect(page.getByText('Add a library')).toHaveCount(0)
+    // The detail sheet offers the reader nothing to start, stop or manage either.
+    await page.goto('/app/addons?detail=notes')
+    await expect(detail(page, 'notes')).toBeVisible()
+    await expect(page.getByRole('button', { name: /^(Start|Stop)$/ })).toHaveCount(0)
+    await expect(page.getByRole('link', { name: 'Manage' })).toHaveCount(0)
   })
 
   test('apps: an administrator starts an app with a fresh operation ID and the listed generation', async ({ page }) => {
     await signIn(page, ADMIN)
     const state = await mockAddons(page, { apps: [app({ id: 'indexer', title: 'Indexer', enabled: false, state: 'stopped', generation: 4, mainPage: undefined, admin: { canStart: true, canStop: false, managementUrl: '/app/addons?manage=indexer' } })] })
-    await page.goto('/app/addons')
-    const card = page.locator('[data-app="indexer"]')
+    await page.goto('/app/addons?detail=indexer')
+    const card = detail(page, 'indexer')
     await expect(card.getByRole('img', { name: 'State: Stopped' })).toBeVisible()
     await expect(card.getByRole('link', { name: 'Manage' })).toHaveAttribute('href', '/app/addons?manage=indexer')
     await card.getByRole('button', { name: 'Start' }).click()
@@ -93,8 +100,8 @@ test.describe('Add-ons: apps', () => {
         return ok({ OperationID: body.operationId, AddonID: body.addonId, Phase: reads >= 2 ? 'completed' : 'prepared', Generation: 2 })
       },
     })
-    await page.goto('/app/addons')
-    await page.locator('[data-app="indexer"]').getByRole('button', { name: 'Start' }).click()
+    await page.goto('/app/addons?detail=indexer')
+    await detail(page, 'indexer').getByRole('button', { name: 'Start' }).click()
     await expect.poll(() => reads, { timeout: 15_000 }).toBeGreaterThanOrEqual(2)
     expect(state.log.start).toHaveLength(1)
     const ids = new Set([state.log.start[0].operationId, ...state.log.dispatch.filter(d => d.action === 'operation-status').map(d => d.operationId)])
@@ -141,8 +148,8 @@ test.describe('Add-ons: apps', () => {
         return ok({ OperationID: body.operationId, AddonID: body.addonId, Phase: lose && reads <= 6 ? 'prepared' : 'completed', Generation: 2 })
       },
     })
-    await page.goto('/app/addons')
-    const card = page.locator('[data-app="indexer"]')
+    await page.goto('/app/addons?detail=indexer')
+    const card = detail(page, 'indexer')
     await card.getByRole('button', { name: 'Start' }).click()
     const notice = card.getByTestId('unknown-outcome')
     await expect(notice).toBeVisible({ timeout: 40_000 })
@@ -182,8 +189,8 @@ test.describe('Add-ons: apps', () => {
         : null),
       dispatch: (body) => (body.action === 'operation-status' ? ok({ OperationID: body.operationId, AddonID: body.addonId, Phase: 'prepared', Generation: 2 }) : null),
     })
-    await page.goto('/app/addons')
-    const card = page.locator('[data-app="indexer"]')
+    await page.goto('/app/addons?detail=indexer')
+    const card = detail(page, 'indexer')
     await card.getByRole('button', { name: 'Start' }).click()
     const notice = card.getByTestId('unknown-outcome')
     await expect(notice).toBeVisible({ timeout: 40_000 })
@@ -202,8 +209,8 @@ test.describe('Add-ons: apps', () => {
       // A replay answers completed and applies nothing.
       start: (body) => ok({ OperationID: body.operationId, AddonID: 'indexer', Phase: 'completed', Generation: 2 }),
     })
-    await page.goto('/app/addons')
-    const card = page.locator('[data-app="indexer"]')
+    await page.goto('/app/addons?detail=indexer')
+    const card = detail(page, 'indexer')
     await card.getByRole('button', { name: 'Start' }).click()
     await expect(card.getByRole('alert')).toContainText('did not change')
     await expect(card.getByRole('img', { name: 'State: Stopped' })).toBeVisible()
@@ -215,9 +222,9 @@ test.describe('Add-ons: apps', () => {
       apps: [app({ id: 'indexer', title: 'Indexer', enabled: false, state: 'stopped', generation: 2, mainPage: undefined, admin: { canStart: true, canStop: false, managementUrl: '/app/addons?manage=indexer' } })],
       start: () => fail(403, 'addon_error'),
     })
-    await page.goto('/app/addons')
+    await page.goto('/app/addons?detail=indexer')
     const before = state.log.appsList
-    await page.locator('[data-app="indexer"]').getByRole('button', { name: 'Start' }).click()
+    await detail(page, 'indexer').getByRole('button', { name: 'Start' }).click()
     await expect(page.getByRole('alert').filter({ hasText: 'The server refused this' })).toBeVisible()
     await expect.poll(() => state.log.appsList).toBeGreaterThan(before)
   })
@@ -583,8 +590,9 @@ test.describe('Add-ons: access, keyboard, layout and language', () => {
     await expect(tab(page, 'Apps')).toHaveAttribute('aria-selected', 'true')
     // The selected tab is the only one in the tab order.
     await expect(tab(page, 'Browse')).toHaveAttribute('tabindex', '-1')
-    // Stop is reachable and operable with the keyboard alone.
-    const stop = page.locator('[data-app="notes"]').getByRole('button', { name: 'Stop' })
+    // Stop is reachable and operable with the keyboard alone, in the detail sheet.
+    await page.goto('/app/addons?detail=notes')
+    const stop = detail(page, 'notes').getByRole('button', { name: 'Stop' })
     await stop.focus()
     await expect(stop).toBeFocused()
     await page.keyboard.press('Enter')
@@ -599,7 +607,7 @@ test.describe('Add-ons: access, keyboard, layout and language', () => {
     await expect(page.locator('[data-app="notes"]')).toBeVisible()
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
     expect(overflow).toBeLessThanOrEqual(0)
-    const lefts = await page.locator('.ad-card').evaluateAll(cards => cards.map(c => Math.round(c.getBoundingClientRect().left)))
+    const lefts = await page.locator('.ad-tile').evaluateAll(cards => cards.map(c => Math.round(c.getBoundingClientRect().left)))
     expect(new Set(lefts).size).toBe(1)
     await shoot(page, 'apps-narrow')
     await page.goto('/app/addons?tab=installed&manage=notes')
@@ -614,6 +622,7 @@ test.describe('Add-ons: access, keyboard, layout and language', () => {
     await mockAddons(page)
     await page.addInitScript(() => localStorage.setItem('localai-theme', 'light'))
     await page.goto('/app/addons')
+    await page.goto('/app/addons?detail=notes')
     const read = () => page.locator('.ad-card').first().evaluate(el => {
       const css = getComputedStyle(el)
       const chip = getComputedStyle(el.querySelector('.ad-chip'))
@@ -636,10 +645,12 @@ test.describe('Add-ons: access, keyboard, layout and language', () => {
     await page.goto('/app/addons')
     await expect(page.getByRole('tab', { name: 'Sfoglia' })).toBeVisible()
     await expect(page.getByRole('tab', { name: 'Librerie' })).toBeVisible()
-    await expect(page.locator('[data-app="notes"]').getByRole('img', { name: 'Stato: In esecuzione' })).toBeVisible()
+    await page.goto('/app/addons?detail=notes')
+    await expect(detail(page, 'notes').getByRole('img', { name: 'Stato: In esecuzione' })).toBeVisible()
   })
 
-  test('hub: the Add-ons tab appears only for an account that holds the feature', async ({ page }) => {
+  test('hub: under the legacy switch the Add-ons tab appears only for an account that holds the feature', async ({ page }) => {
+    await page.route('**/api/features', route => route.fulfill({ json: { addon_navigation: false } }))
     await signIn(page, MEMBER, { chat: true })
     await mockAddons(page)
     await page.goto('/app/build')

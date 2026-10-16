@@ -32,7 +32,10 @@ const call = (page, method, path, body) => page.evaluate(async ({ method, path, 
 }, { method, path, body })
 
 const isAddonAsset = (url) => /\/api\/addons\/[^/]+\/assets\//.test(url)
-const card = (page) => page.locator(`[data-app="${ID}"]`)
+// The drawer draws a tile for the add-on; its start and stop controls are in
+// the card of the detail sheet (/app/addons?detail=ID).
+const card = (page) => page.locator(`[data-testid="addon-tile"][data-app="${ID}"]`)
+const sheetCard = (page) => page.getByTestId('addon-detail').locator(`[data-app="${ID}"]`)
 
 test.describe.configure({ mode: 'serial' })
 
@@ -44,7 +47,7 @@ test.describe('Add-ons foundation through real servers', () => {
       page.on('response', r => { if (isAddonAsset(r.url())) answers.push({ url: r.url(), status: r.status() }) })
       await page.goto('/app/addons')
       await expect(card(page)).toBeVisible({ timeout: 30_000 })
-      await card(page).getByRole('link', { name: 'Open' }).click()
+      await card(page).getByRole('link').click()
       await expect(page).toHaveURL(/\/app\/addons\/found-ui\/home$/)
       await expect(page.getByTestId('fnd-title')).toHaveText('Foundation fixture', { timeout: 30_000 })
       expect(answers.length).toBeGreaterThanOrEqual(1)
@@ -62,7 +65,7 @@ test.describe('Add-ons foundation through real servers', () => {
       const { context, page } = await browserAs(browser, node, 'member')
       await page.goto('/app/addons')
       await expect(card(page)).toBeVisible({ timeout: 30_000 })
-      await expect(card(page).getByRole('img', { name: 'State: Running' })).toBeVisible()
+      await expect(card(page).locator('.ad-tile__state')).toHaveText('Running')
       await context.close()
     }
   })
@@ -73,6 +76,11 @@ test.describe('Add-ons foundation through real servers', () => {
       await page.goto('/app/addons')
       await expect(card(page)).toBeVisible({ timeout: 30_000 })
       await expect(page.getByRole('tablist')).toHaveCount(0)
+      await expect(page.getByRole('button', { name: /^(Start|Stop)$/ })).toHaveCount(0)
+      await expect(page.getByRole('link', { name: 'Manage' })).toHaveCount(0)
+      // The detail sheet hides them as well.
+      await page.goto(`/app/addons?detail=${ID}`)
+      await expect(sheetCard(page)).toBeVisible({ timeout: 30_000 })
       await expect(page.getByRole('button', { name: /^(Start|Stop)$/ })).toHaveCount(0)
       await expect(page.getByRole('link', { name: 'Manage' })).toHaveCount(0)
       // The page hides the controls; the server is what refuses.
@@ -107,15 +115,16 @@ test.describe('Add-ons foundation through real servers', () => {
     await page.goto('/app/addons')
     await expect(card(page)).toBeVisible({ timeout: 30_000 })
     await expect(page.getByRole('tablist')).toBeVisible()
-    await card(page).getByRole('button', { name: 'Stop' }).click()
-    await expect(card(page).getByRole('img', { name: 'State: Stopped' })).toBeVisible({ timeout: 30_000 })
+    await page.goto(`/app/addons?detail=${ID}`)
+    await sheetCard(page).getByRole('button', { name: 'Stop' }).click()
+    await expect(sheetCard(page).getByRole('img', { name: 'State: Stopped' })).toBeVisible({ timeout: 30_000 })
     // The other frontend and the owner see the same stopped add-on: the
     // administrator in the list with its state, a member not at all, because
     // the owner lists a disabled add-on to administrators only.
     for (const node of ['front-a', 'owner']) {
       const other = await browserAs(browser, node, 'admin')
-      await other.page.goto('/app/addons')
-      await expect(card(other.page).getByRole('img', { name: 'State: Stopped' })).toBeVisible({ timeout: 30_000 })
+      await other.page.goto(`/app/addons?detail=${ID}`)
+      await expect(sheetCard(other.page).getByRole('img', { name: 'State: Stopped' })).toBeVisible({ timeout: 30_000 })
       await other.context.close()
       const member = await browserAs(browser, node, 'member')
       await member.page.goto('/app/addons')
@@ -123,8 +132,8 @@ test.describe('Add-ons foundation through real servers', () => {
       await expect(card(member.page)).toHaveCount(0)
       await member.context.close()
     }
-    await card(page).getByRole('button', { name: 'Start' }).click()
-    await expect(card(page).getByRole('img', { name: 'State: Running' })).toBeVisible({ timeout: 30_000 })
+    await sheetCard(page).getByRole('button', { name: 'Start' }).click()
+    await expect(sheetCard(page).getByRole('img', { name: 'State: Running' })).toBeVisible({ timeout: 30_000 })
     await context.close()
   })
 
