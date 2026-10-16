@@ -18,9 +18,12 @@ import Icon from './Icon'
 const COLLAPSED_KEY = 'localai_sidebar_collapsed'
 const SECTIONS_KEY = 'localai_sidebar_sections'
 
-// Create stays inline (frequent, one-click creative destinations). Build and
-// Operate sit under Workspace as single entries; each opens a hub whose tab
-// bar lives in hub/hubConfig.js (shared with HubLayout). The inline entries
+// The sidebar has two layouts. The four-item layout shows Home, Chat, Models,
+// Add-ons and Settings, the Pinned section, and Build and Operate under
+// Workspace. With the legacy switch on (features.addon_navigation === false)
+// it shows Home and Models, the Create group (Chat, Studio, Talk) and
+// Workspace. Build and Operate are single entries; each opens a hub whose tab
+// bar lives in hub/hubConfig.js (shared with HubLayout). The legacy entries
 // are shared with the 404 page, which lists the same destinations.
 const topItems = topDestinations
 

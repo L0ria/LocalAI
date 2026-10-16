@@ -7,7 +7,7 @@ import { scopeCss } from '../../src/addons/cssScope.js'
 import { assertAssetUrl, loadAddonUI, validateChatActions, chatActionContext, LoadError } from '../../src/addons/loader.js'
 import { createRuntimeManager } from '../../src/addons/runtime.js'
 import { invalidReason, navigationItems, availableChatActions, appStatus, usable, contributesUI, shouldPoll } from '../../src/addons/registryState.js'
-import { visibleItems, buildHub } from '../../src/components/hub/hubConfig.js'
+import { visibleItems, isTabVisible, buildHub } from '../../src/components/hub/hubConfig.js'
 
 const ORIGIN = 'https://host.example'
 const DIGEST = 'ab'.repeat(32)
@@ -642,11 +642,13 @@ test('registry: navigation and chat actions come only from usable add-ons of the
   }
 })
 
-test('registry: the Add-ons tab lists page links only when the registry has usable add-ons', () => {
-  // The Build hub no longer has an Add-ons tab; the branch of visibleItems that
-  // appends add-on links stays, so it is driven with a stand-in tab.
-  const tab = { id: 'addons', labelKey: 'items.addons', icon: 'puzzle', items: [{ path: '/app/addons', labelKey: 'items.addons', feature: 'addons', exact: true }], addonNavigation: true }
-  const auth = { isAdmin: false, authEnabled: true, hasFeature: () => true, features: {} }
+test('registry: the legacy Add-ons tab lists page links only when the registry has usable add-ons', () => {
+  const tab = buildHub.tabs.find(t => t.id === 'addons')
+  const auth = { isAdmin: false, authEnabled: true, hasFeature: () => true, features: { addon_navigation: false } }
+  // The tab exists only under the legacy switch: hidden in the new layout and until /api/features answers.
+  assert.equal(isTabVisible(tab, auth), true)
+  assert.equal(isTabVisible(tab, { ...auth, features: { addon_navigation: true } }), false)
+  assert.equal(isTabVisible(tab, { ...auth, features: {} }), false)
   assert.deepEqual(visibleItems(tab, auth).map(i => i.path), ['/app/addons'])
   const nav = navigationItems([app()], { language: 'en' })
   const items = visibleItems(tab, { ...auth, addonNavigation: nav })

@@ -1,5 +1,5 @@
 import { lazy } from 'react'
-import { createBrowserRouter, Navigate, useLocation, useParams } from 'react-router-dom'
+import { createBrowserRouter, Navigate, Outlet, useLocation, useOutletContext, useParams } from 'react-router-dom'
 import { routerBasename } from './utils/basePath'
 import App from './App'
 import RequireAdmin from './components/RequireAdmin'
@@ -169,6 +169,7 @@ import { AddonRegistryProvider } from './addons/registry'
 import { useAuth } from './context/AuthContext'
 import { NavigationProvider, useNavigation } from './context/NavigationContext'
 import { buildHub, operateHub } from './components/hub/hubConfig'
+import { useHubAuth } from './components/hub/useHubAuth'
 
 // The Agent chat page became the agent's own page and its runs. An old chat
 // link opens the agent page and keeps the user in the query.
@@ -189,9 +190,21 @@ function Admin({ children }) {
   return <RequireAdmin>{children}</RequireAdmin>
 }
 
+// The layout of the add-on routes: the Build hub bar under the legacy switch,
+// the bare page otherwise.
+function AddonsShell() {
+  const { features } = useHubAuth()
+  const outletContext = useOutletContext()
+  if (features.addon_navigation === false) return <HubLayout config={buildHub} />
+  return <Outlet context={outletContext} />
+}
+
 function DrawerGate({ children }) {
+  const { features } = useHubAuth()
+  const legacy = features.addon_navigation === false
   const { isAdmin, hasFeature, loading } = useAuth()
   const { builtin, status } = useNavigation()
+  if (legacy) return <Feature feature="addons">{children}</Feature>
   if (loading || status === 'idle' || status === 'loading') return null
   if (!isAdmin && !hasFeature('addons') && builtin.length === 0) return <Navigate to="/app" replace />
   return children
@@ -228,8 +241,15 @@ const appChildren = [
   // The Add-ons drawer. A viewer without the addons feature still reaches it
   // when a built-in tile (Studio, Talk) is theirs to open, so no one loses a
   // page they can open today.
-  { path: 'addons', element: <DrawerGate><Addons /></DrawerGate> },
-  { path: 'addons/:addonId/*', element: <Feature feature="addons"><AddonRoute /></Feature> },
+  // With the legacy switch on, both routes sit in the Build hub again, under
+  // its Add-ons tab, and need the addons feature as they did before.
+  {
+    element: <AddonsShell />,
+    children: [
+      { path: 'addons', element: <DrawerGate><Addons /></DrawerGate> },
+      { path: 'addons/:addonId/*', element: <Feature feature="addons"><AddonRoute /></Feature> },
+    ],
+  },
 
   // Build hub: one tab bar over the tool landing pages. Deep create/edit/chat
   // flows below render full-width, without the bar.

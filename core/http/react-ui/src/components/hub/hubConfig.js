@@ -20,12 +20,15 @@
 //   adminOnly, authOnly, feature, requiresAgentPool, unlessFeature  gating
 //   match         extra path prefixes that belong to the tab (sub-pages)
 //   showWhen      tab only: `/api/features` flag that must be on
+//   showWhenOff   tab only: `/api/features` flag that must be off (answered false)
 //   revealOnRoute tab only: draw the tab while the viewer is on one of its
 //                 routes, even when `showWhen` is off
 //   signals       tab only: values from the Operate summary (see
 //                 OperateSummaryContext), each drawn as a neutral count
 //                 (kind `count`) or an attention badge (kind `attention`,
 //                 or `error` for failures)
+
+import { FEATURE_ADDONS } from '../../utils/capabilities.js'
 
 export const buildHub = {
   id: 'build',
@@ -59,6 +62,20 @@ export const buildHub = {
       descriptionKey: 'hub.descriptions.memory',
       icon: 'database',
       items: [{ path: '/app/collections', labelKey: 'items.memory', feature: 'collections', requiresAgentPool: true }],
+    },
+    {
+      id: 'addons',
+      labelKey: 'items.addons',
+      descriptionKey: 'hub.descriptions.addons',
+      icon: 'puzzle',
+      // The previous navigation only: with the four-item sidebar the Add-ons
+      // drawer is a page of its own (LOCALAI_LEGACY_NAVIGATION brings this back).
+      showWhenOff: 'addon_navigation',
+      // The page serves everyone with the feature; the management tabs are
+      // administrator-only and checked by the server on every call.
+      items: [{ path: '/app/addons', labelKey: 'items.addons', feature: FEATURE_ADDONS, exact: true }],
+      // Add-on pages that declare navigation are listed in the second row.
+      addonNavigation: true,
     },
     {
       id: 'jobs',
@@ -225,6 +242,7 @@ export function visibleItems(tab, auth) {
 
 // A tab with a `showWhen` flag stays hidden until /api/features says it is on.
 function tabGateOpen(tab, auth) {
+  if (tab.showWhenOff && auth.features[tab.showWhenOff] !== false) return false
   return !tab.showWhen || auth.features[tab.showWhen] === true
 }
 

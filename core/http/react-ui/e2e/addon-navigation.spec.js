@@ -103,3 +103,28 @@ test.describe('Add-on navigation', () => {
     expect(overflow).toBe(false)
   })
 })
+
+test.describe('Add-on navigation: the Add-ons hub tab and the route in both layouts', () => {
+  test('the new layout has no Add-ons hub tab and serves the drawer at /app/addons', async ({ page }) => {
+    await setup(page)
+    await page.goto('/app/build')
+    await expect(page.locator('.dk-hubtabs [data-hub-tab="addons"]')).toHaveCount(0)
+    await page.goto('/app/addons')
+    await expect(page.getByTestId('addon-tile')).toHaveCount(2)
+    await expect(page.locator('.dk-hubtabs')).toHaveCount(0)
+  })
+
+  test('the legacy flag brings the Add-ons hub tab back and /app/addons opens under it', async ({ page }) => {
+    await setup(page, { apps: [app({ id: 'notes', title: 'Notes', state: 'running', mainPage: '/app/addons/notes/home' })] })
+    await page.route('**/api/features', route => route.fulfill({ json: { addon_navigation: false } }))
+    await page.goto('/app/build')
+    const hubTab = page.locator('.dk-hubtabs [data-hub-tab="addons"]')
+    await expect(hubTab).toHaveAttribute('href', '/app/addons')
+    await hubTab.click()
+    await expect(page).toHaveURL(/\/app\/addons$/)
+    await expect(hubTab).toHaveAttribute('aria-current', 'page')
+    await expect(page.getByTestId('addon-tile').filter({ hasText: 'Notes' })).toBeVisible()
+    await page.goto('/app/addons')
+    await expect(page.locator('.dk-hubtabs [data-hub-tab="addons"]')).toHaveAttribute('aria-current', 'page')
+  })
+})
