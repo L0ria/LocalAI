@@ -248,6 +248,7 @@
       "cancels status lookup while a lifecycle writer holds the journal lock",
       "denies enable and disable for a stale generation without recording anything",
       "lists the identifiers of installed addons, disabled ones included",
+      "refuses to list installed identifiers while recovery is required",
       "lists apps by visibility and serves an icon only for a visible app at its generation",
       "reports the supervisor state of an app through a crash and a restart",
       "reads a flat directory in batches and stops at the entry bound",
@@ -1593,6 +1594,7 @@
       "describes the immutable UI assets of an enabled addon by the package digest and never otherwise",
       "denies enable and disable for a stale generation without recording anything",
       "lists the identifiers of installed addons, disabled ones included",
+      "refuses to list installed identifiers while recovery is required",
       "lists apps by visibility and serves an icon only for a visible app at its generation",
       "cancels status lookup while a lifecycle writer holds the journal lock",
       "retries runtime synchronization after canceled disable and generation upgrade",
@@ -1749,6 +1751,7 @@
         "cases": [
           "denies enable and disable for a stale generation without recording anything",
           "lists the identifiers of installed addons, disabled ones included",
+          "refuses to list installed identifiers while recovery is required",
           "lists apps by visibility and serves an icon only for a visible app at its generation",
           "cancels status lookup while a lifecycle writer holds the journal lock",
           "retries runtime synchronization after canceled disable and generation upgrade",

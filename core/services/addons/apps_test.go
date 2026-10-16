@@ -90,6 +90,19 @@ var _ = Describe("apps and stale lifecycle generations", func() {
 		Expect(got).To(Equal([]string{"off", "on"}))
 	})
 
+	It("refuses to list installed identifiers while recovery is required", func() {
+		cfg, c, i := fixture()
+		m := open(cfg, c, i)
+		m.journal.Addons["on"] = Status{AddonID: "on", Installed: true, DesiredEnabled: true, Generation: 1}
+		m.uncertain = true
+		_, e := m.InstalledIDs(ctx)
+		Expect(e).To(MatchError(ErrRecoveryRequired))
+		m.uncertain = false
+		m.runtimeRecoveryRequired = true
+		_, e = m.InstalledIDs(ctx)
+		Expect(e).To(MatchError(ErrRecoveryRequired))
+	})
+
 	It("lists apps by visibility and serves an icon only for a visible app at its generation", func() {
 		cfg, c, i := fixture()
 		m := open(cfg, c, i)
