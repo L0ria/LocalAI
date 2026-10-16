@@ -6291,6 +6291,75 @@ paths:
       summary: Submit a typed addon lifecycle operation or read an addon resource
       tags:
       - Addons
+  /api/addons/pins:
+    get:
+      description: 'Returns the ordered add-on IDs the caller pinned to the sidebar.
+        The route never pins anything by itself; Studio and Talk are pinned once,
+        at upgrade, for the accounts that existed then. The list holds only IDs the
+        caller may see right now: a hidden or removed add-on is left out and the route
+        does not reveal whether it exists. Needs an authenticated caller and no administrator
+        role.'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Ordered add-on IDs
+          schema:
+            items:
+              type: string
+            type: array
+        "401":
+          description: Authentication required
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "503":
+          description: The pin store is unavailable
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+      summary: List the add-ons the caller pinned
+      tags:
+      - AddonNavigation
+    put:
+      consumes:
+      - application/json
+      description: Replaces the caller's pins with the ordered list in the body. IDs
+        the caller may not see are dropped without any hint, and pins that are only
+        hidden for now are kept. At most 32 IDs are accepted. Needs an authenticated
+        caller from a same-origin browser request or a credential header, and no administrator
+        role.
+      parameters:
+      - description: Ordered add-on IDs
+        in: body
+        name: pins
+        required: true
+        schema:
+          items:
+            type: string
+          type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: The saved list the caller can see
+          schema:
+            items:
+              type: string
+            type: array
+        "400":
+          description: Not a list of strings, or longer than 32
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "401":
+          description: Authentication required
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "503":
+          description: The pin store or the add-on owner is unavailable
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+      summary: Replace the add-ons the caller pinned
+      tags:
+      - AddonNavigation
   /api/addons/proposals:
     get:
       description: 'Returns the caller''s proposals that still wait for a human decision,

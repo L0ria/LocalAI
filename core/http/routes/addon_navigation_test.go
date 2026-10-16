@@ -51,7 +51,7 @@ var _ = Describe("Add-on navigation routes with real authentication", func() {
 		e.Use(auth.Middleware(gdb, app.ApplicationConfig()))
 		// The order of app.go: the feature group first, then the navigation routes.
 		routes.RegisterAddonRoutes(e, app)
-		routes.RegisterAddonNavigationRoutes(e, app)
+		Expect(routes.RegisterAddonNavigationRoutes(e, app)).To(Succeed())
 	})
 	get := func(path string, withKey bool) *httptest.ResponseRecorder {
 		r := httptest.NewRequest(http.MethodGet, path, nil)
@@ -82,12 +82,70 @@ var _ = Describe("Add-on navigation routes with real authentication", func() {
 		Expect(get("/api/addons/apps", true).Code).To(Equal(http.StatusForbidden))
 		Expect(get("/api/addons/builtin", true).Code).To(Equal(http.StatusOK))
 	})
+	It("lets a member without the addons feature read and save pins", func() {
+		r := httptest.NewRequest(http.MethodGet, "/api/addons/pins", nil)
+		r.Header.Set("Authorization", "Bearer "+token)
+		w := httptest.NewRecorder()
+		e.ServeHTTP(w, r)
+		Expect(w.Code).To(Equal(http.StatusOK), w.Body.String())
+		var got []string
+		Expect(json.Unmarshal(w.Body.Bytes(), &got)).To(Succeed())
+		Expect(got).To(BeEmpty())
+
+		put := func(sameOrigin bool) *httptest.ResponseRecorder {
+			r := httptest.NewRequest(http.MethodPut, "/api/addons/pins", strings.NewReader(`["talk","studio"]`))
+			r.Header.Set("Content-Type", "application/json")
+			r.Header.Set("Authorization", "Bearer "+token)
+			r.AddCookie(&http.Cookie{Name: "session", Value: "x"})
+			if sameOrigin {
+				r.Header.Set("Sec-Fetch-Site", "same-origin")
+			}
+			w := httptest.NewRecorder()
+			e.ServeHTTP(w, r)
+			return w
+		}
+		Expect(put(false).Code).To(Equal(http.StatusForbidden))
+		Expect(put(true).Code).To(Equal(http.StatusOK))
+
+		r = httptest.NewRequest(http.MethodPut, "/api/addons/pins", strings.NewReader(`["talk","studio"]`))
+		r.Header.Set("Authorization", "Bearer "+token)
+		r.Header.Set("Content-Type", "application/json")
+		w = httptest.NewRecorder()
+		e.ServeHTTP(w, r)
+		Expect(w.Code).To(Equal(http.StatusOK), w.Body.String())
+		Expect(json.Unmarshal(w.Body.Bytes(), &got)).To(Succeed())
+		Expect(got).To(Equal([]string{"talk", "studio"}))
+		Expect(get("/api/addons/apps", true).Code).To(Equal(http.StatusForbidden))
+	})
+	It("refuses an anonymous pins request", func() {
+		Expect(get("/api/addons/pins", false).Code).To(Equal(http.StatusUnauthorized))
+	})
+	It("fails to register when the pins file is corrupt", func() {
+		// The application writes into its data path in the background, so the
+		// directory is removed with a retry, not by the one-shot TempDir cleanup.
+		dir, err := os.MkdirTemp("", "pins-corrupt")
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(func() {
+			Eventually(func() error { return os.RemoveAll(dir) }, "5s", "50ms").Should(Succeed())
+		})
+		Expect(os.WriteFile(filepath.Join(dir, "addon-pins.json"), []byte("{broken"), 0o600)).To(Succeed())
+		ctx, cancel := context.WithCancel(context.Background())
+		DeferCleanup(cancel)
+		models, backends := filepath.Join(dir, "m"), filepath.Join(dir, "b")
+		Expect(os.Mkdir(models, 0750)).To(Succeed())
+		Expect(os.Mkdir(backends, 0750)).To(Succeed())
+		state, err := system.GetSystemState(system.WithBackendPath(backends), system.WithModelPath(models))
+		Expect(err).NotTo(HaveOccurred())
+		plain, err := application.New(config.WithContext(ctx), config.WithSystemState(state), config.WithDataPath(dir))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(routes.RegisterAddonNavigationRoutes(echo.New(), plain)).NotTo(Succeed())
+	})
 	It("refuses an anonymous caller", func() {
 		Expect(get("/api/addons/builtin", false).Code).To(Equal(http.StatusUnauthorized))
 	})
 	It("reserves every first path segment the navigation routes register", func() {
 		nav := echo.New()
-		routes.RegisterAddonNavigationRoutes(nav, app)
+		Expect(routes.RegisterAddonNavigationRoutes(nav, app)).To(Succeed())
 		Expect(nav.Routes()).NotTo(BeEmpty())
 		for _, r := range nav.Routes() {
 			rest, ok := strings.CutPrefix(r.Path, "/api/addons/")

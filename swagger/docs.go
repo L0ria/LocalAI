@@ -752,6 +752,97 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/addons/pins": {
+            "get": {
+                "description": "Returns the ordered add-on IDs the caller pinned to the sidebar. The route never pins anything by itself; Studio and Talk are pinned once, at upgrade, for the accounts that existed then. The list holds only IDs the caller may see right now: a hidden or removed add-on is left out and the route does not reveal whether it exists. Needs an authenticated caller and no administrator role.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "AddonNavigation"
+                ],
+                "summary": "List the add-ons the caller pinned",
+                "responses": {
+                    "200": {
+                        "description": "Ordered add-on IDs",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Authentication required",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "The pin store is unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Replaces the caller's pins with the ordered list in the body. IDs the caller may not see are dropped without any hint, and pins that are only hidden for now are kept. At most 32 IDs are accepted. Needs an authenticated caller from a same-origin browser request or a credential header, and no administrator role.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "AddonNavigation"
+                ],
+                "summary": "Replace the add-ons the caller pinned",
+                "parameters": [
+                    {
+                        "description": "Ordered add-on IDs",
+                        "name": "pins",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The saved list the caller can see",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Not a list of strings, or longer than 32",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Authentication required",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "The pin store or the add-on owner is unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/addons/proposals": {
             "get": {
                 "description": "Returns the caller's proposals that still wait for a human decision, newest first, at most 32, each with its state, exact effect count, bounded sample, digest and expiry. This is where a change proposed by a chat tool, an agent or a scheduled job waits: only the proposer's own browser session can confirm it. A proposal of another user is never listed, and an expired one is left out. Read-only: it applies nothing. API keys may call it so an unattended agent can see what is waiting; they still cannot confirm.",

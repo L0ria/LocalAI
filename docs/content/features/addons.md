@@ -1492,6 +1492,35 @@ user who reaches Studio today still reaches it from the drawer. When authenticat
 the caller is the local owner and sees every entry. The answer depends on the caller and is
 sent with `Cache-Control: private, no-store`.
 
+### Pins
+
+`GET /api/addons/pins` returns the caller's pinned add-on IDs as a JSON array, in order.
+`PUT /api/addons/pins` takes a JSON array of add-on IDs, replaces the caller's pins with it
+and returns the saved list. Both routes need an authenticated caller. They need no
+administrator role and no `addons` feature, like `GET /api/addons/builtin`. A `PUT` from a
+browser must be a same-origin request or carry a credential header. The answer depends on
+the caller and is sent with `Cache-Control: private, no-store`.
+
+- **Filtering.** A pin is filtered like a tile. The list holds only IDs the caller may see
+  now: the built-in add-ons that pass their gates, plus the installed apps the owner lists
+  for the caller. An ID the caller cannot see is left out of a read and dropped from a
+  save, with no hint whether it exists. Duplicates are dropped.
+- **Hidden pins survive.** A pin that is only hidden for now (an access change, or an
+  add-on removed inside its retention window) is kept after the visible pins when the
+  caller saves.
+- **Limit.** A save of more than 32 IDs, or a body that is not a list of strings, is
+  refused with `400`. If the add-on owner does not answer, a save is refused with `503`, so
+  an outage cannot drop pins.
+- **Upgrade seed.** A read or a save never pins anything. Once, at the upgrade that adds
+  this feature, the accounts that exist then get Studio and Talk pinned. An account created
+  later starts with no pins. An unpin stays after a restart.
+- **Startup.** If the pins file cannot be read (it is corrupt), the server does not start
+  and logs the error. It does not fall back to memory, because that would lose every unpin
+  at the next restart.
+- **Distributed state: shared.** With an account database, the table `addon_pins` is
+  shared by every frontend. With authentication off there is one local owner, and the pins
+  are kept in `addon-pins.json` in the data path, per instance.
+
 `builtin` and `pins` are reserved add-on IDs: an add-on cannot use them, because the host
 serves `/api/addons/builtin` and `/api/addons/pins`.
 
