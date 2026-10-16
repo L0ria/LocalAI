@@ -66,6 +66,23 @@ var _ = Describe("add-on pin store and the upgrade seed", func() {
 		Expect(pinIDs(again, "u3")).To(BeEmpty())
 	})
 
+	It("does not mark the seed as run when the accounts cannot be read, and seeds at the next start", func() {
+		db, err := auth.InitDB(filepath.Join(GinkgoT().TempDir(), "auth.db"))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(db.Create(&auth.User{ID: "u1", Email: "u1@example.test", Provider: auth.ProviderLocal, Role: auth.RoleUser, Status: auth.StatusActive}).Error).To(Succeed())
+		Expect(db.Migrator().RenameTable(&auth.User{}, "users_away")).To(Succeed())
+
+		s := store(appOver(db, ""))
+		Expect(pinIDs(s, "u1")).To(BeEmpty())
+		var marks int64
+		Expect(db.Model(&pins.SeedRun{}).Count(&marks).Error).To(Succeed())
+		Expect(marks).To(BeZero())
+
+		Expect(db.Migrator().RenameTable("users_away", &auth.User{})).To(Succeed())
+		next := store(appOver(db, ""))
+		Expect(pinIDs(next, "u1")).To(Equal([]string{"studio", "talk"}))
+	})
+
 	It("seeds the local owner when authentication is off and keeps an unpin", func() {
 		dir := GinkgoT().TempDir()
 		s := store(appOver(nil, dir))

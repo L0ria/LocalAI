@@ -18,6 +18,9 @@ import (
 // addonPinSweepEvery is how often the retention sweep runs.
 const addonPinSweepEvery = 6 * time.Hour
 
+// addonPinSeedTimeout bounds the one-time upgrade seed at start.
+const addonPinSeedTimeout = 30 * time.Second
+
 // AddonPinStore returns the pin store, creating it once so the routes and the
 // retention sweep share it. Creating it also runs the one-time upgrade seed for
 // the accounts that exist now. An error is cached: a store that could not be
@@ -31,7 +34,17 @@ func (a *Application) AddonPinStore() (pins.Store, error) {
 			return
 		}
 		a.addonPinStore = s
-		if _, err := s.SeedExisting(context.Background(), a.existingPinAccounts(), pins.SeedIDs); err != nil {
+		// The seed gets a short bound so a stuck database cannot hold startup.
+		ctx, cancel := context.WithTimeout(context.Background(), addonPinSeedTimeout)
+		defer cancel()
+		accounts, err := a.existingPinAccounts()
+		if err != nil {
+			// No marker is written: the seed runs again at the next start, so a
+			// failed read does not cost the existing accounts their pins.
+			xlog.Warn("addon pin upgrade seed skipped; it will run again at the next start", "error", err)
+			return
+		}
+		if _, err := s.SeedExisting(ctx, accounts, pins.SeedIDs); err != nil {
 			xlog.Warn("addon pin upgrade seed failed; it will run again at the next start", "error", err)
 		}
 	})
@@ -43,16 +56,15 @@ func (a *Application) AddonPinStore() (pins.Store, error) {
 // owner when authentication is off. The local owner counts as an existing
 // account, so a deployment with authentication off keeps its Studio and Talk
 // entries too.
-func (a *Application) existingPinAccounts() []string {
+func (a *Application) existingPinAccounts() ([]string, error) {
 	if a.authDB == nil {
-		return []string{auth.AddonLocalOwnerID}
+		return []string{auth.AddonLocalOwnerID}, nil
 	}
 	var ids []string
 	if err := a.authDB.Model(&auth.User{}).Pluck("id", &ids).Error; err != nil {
-		xlog.Warn("could not list accounts for the pin seed", "error", err)
-		return nil
+		return nil, fmt.Errorf("list the accounts for the pin seed: %w", err)
 	}
-	return ids
+	return ids, nil
 }
 
 // pinStoreFor picks the store: the shared account database when there is one,
