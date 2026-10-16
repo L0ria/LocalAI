@@ -123,3 +123,21 @@ func TestACorruptPinsFileMakesTheConstructorFail(t *testing.T) {
 		t.Fatalf("want an error and no store, got %v %v", s, err)
 	}
 }
+
+func TestPutAcceptsExactlyTheHardLimit(t *testing.T) {
+	svc := newService(t)
+	at := make([]string, HardLimit)
+	over := make([]string, HardLimit+1)
+	for i := range over {
+		over[i] = "a"
+		if i < HardLimit {
+			at[i] = "a"
+		}
+	}
+	if _, err := svc.Put(context.Background(), "u1", at, vis("a")); err != nil {
+		t.Fatalf("%d ids must be accepted: %v", HardLimit, err)
+	}
+	if _, err := svc.Put(context.Background(), "u1", over, vis("a")); !errors.Is(err, ErrTooMany) {
+		t.Fatalf("%d ids must be refused with ErrTooMany: %v", HardLimit+1, err)
+	}
+}

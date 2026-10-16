@@ -78,7 +78,7 @@ func TestPutDropsIDsTheCallerCannotSee(t *testing.T) {
 
 func TestPutRejectsABodyThatIsNotAListOfStrings(t *testing.T) {
 	e := pinsApp(t, false)
-	for _, body := range []string{`{"a":1}`, `[1,2]`, `not json`, ``} {
+	for _, body := range []string{`{"a":1}`, `[1,2]`, `not json`, ``, `null`} {
 		if code, _ := call(e, http.MethodPut, body); code != 400 {
 			t.Fatalf("body %q: want 400, got %d", body, code)
 		}

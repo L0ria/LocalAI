@@ -11,6 +11,7 @@ import (
 	endpoints "github.com/mudler/LocalAI/core/http/endpoints/addons"
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
 	"github.com/mudler/LocalAI/core/services/addons/pins"
+	"github.com/mudler/xlog"
 	"gorm.io/gorm"
 )
 
@@ -38,7 +39,12 @@ func RegisterAddonNavigationRoutes(e *echo.Echo, a *application.Application) err
 // Task 4 moves this function into the application, so the routes and the
 // retention sweep share one store.
 func newPinStore(a *application.Application) (pins.Store, error) {
-	if db := a.AuthDB(); db != nil {
+	return pinStoreFor(a.AuthDB(), a.ApplicationConfig().DataPath)
+}
+
+// pinStoreFor picks the store from the account database and the data path.
+func pinStoreFor(db *gorm.DB, dataPath string) (pins.Store, error) {
+	if db != nil {
 		s, err := pins.NewGormStore(db)
 		if err != nil {
 			return nil, fmt.Errorf("open the add-on pin table: %w", err)
@@ -46,8 +52,10 @@ func newPinStore(a *application.Application) (pins.Store, error) {
 		return s, nil
 	}
 	path := ""
-	if dir := a.ApplicationConfig().DataPath; dir != "" {
-		path = filepath.Join(dir, "addon-pins.json")
+	if dataPath != "" {
+		path = filepath.Join(dataPath, "addon-pins.json")
+	} else {
+		xlog.Warn("No data path and no account database: add-on pins are kept in memory only and do not survive a restart")
 	}
 	s, err := pins.NewFileStore(path)
 	if err != nil {

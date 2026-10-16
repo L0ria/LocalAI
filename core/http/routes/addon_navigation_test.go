@@ -21,6 +21,7 @@ import (
 	"github.com/mudler/LocalAI/pkg/system"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"gorm.io/gorm"
 )
 
 const navSecret = "addon-navigation-secret"
@@ -53,6 +54,7 @@ var _ = Describe("Add-on navigation routes with real authentication", func() {
 		routes.RegisterAddonRoutes(e, app)
 		Expect(routes.RegisterAddonNavigationRoutes(e, app)).To(Succeed())
 	})
+	gdbOf := func(a *application.Application) *gorm.DB { return a.AuthDB() }
 	get := func(path string, withKey bool) *httptest.ResponseRecorder {
 		r := httptest.NewRequest(http.MethodGet, path, nil)
 		if withKey {
@@ -116,6 +118,27 @@ var _ = Describe("Add-on navigation routes with real authentication", func() {
 		Expect(json.Unmarshal(w.Body.Bytes(), &got)).To(Succeed())
 		Expect(got).To(Equal([]string{"talk", "studio"}))
 		Expect(get("/api/addons/apps", true).Code).To(Equal(http.StatusForbidden))
+	})
+	It("keeps the pins of two users apart", func() {
+		Expect(gdbOf(app).Create(&auth.User{ID: "other", Email: "other@example.test", Name: "other", Provider: auth.ProviderLocal, Role: auth.RoleUser, Status: auth.StatusActive}).Error).To(Succeed())
+		tokenB, _, err := auth.CreateAPIKey(gdbOf(app), "other", "test", auth.RoleUser, navSecret, nil)
+		Expect(err).NotTo(HaveOccurred())
+		do := func(method, tok, body string) []string {
+			r := httptest.NewRequest(method, "/api/addons/pins", strings.NewReader(body))
+			r.Header.Set("Authorization", "Bearer "+tok)
+			r.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+			e.ServeHTTP(w, r)
+			Expect(w.Code).To(Equal(http.StatusOK), w.Body.String())
+			var out []string
+			Expect(json.Unmarshal(w.Body.Bytes(), &out)).To(Succeed())
+			return out
+		}
+		Expect(do(http.MethodPut, token, `["talk"]`)).To(Equal([]string{"talk"}))
+		Expect(do(http.MethodGet, tokenB, "")).To(BeEmpty())
+		Expect(do(http.MethodPut, tokenB, `["studio"]`)).To(Equal([]string{"studio"}))
+		Expect(do(http.MethodGet, token, "")).To(Equal([]string{"talk"}))
+		Expect(do(http.MethodGet, tokenB, "")).To(Equal([]string{"studio"}))
 	})
 	It("refuses an anonymous pins request", func() {
 		Expect(get("/api/addons/pins", false).Code).To(Equal(http.StatusUnauthorized))
