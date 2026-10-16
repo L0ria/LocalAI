@@ -125,7 +125,8 @@
       "rejects remote data absolute and traversing icon paths",
       "requires the main page to be one of the declared pages",
       "bounds localized titles and descriptions and rejects markup",
-      "requires the existence tool of an addon whose resources are created or deleted"
+      "requires the existence tool of an addon whose resources are created or deleted",
+      "reserves the segments of the navigation routes"
     ],
     "report": ".cache/addons/logs/contracts.json"
   },

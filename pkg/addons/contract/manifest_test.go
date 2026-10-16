@@ -90,7 +90,7 @@ var _ = Describe("Manifest", func() {
 	It("rejects add-on IDs that the host serves as a route segment", func() {
 		// Every first path segment the host uses under /api/addons/ would
 		// otherwise capture the asset URL of an add-on with that ID.
-		Expect(ReservedAddonIDs()).To(ConsistOf("apps", "proposals", "artifacts", "resources", "conversations", "dispatch", "relay", "catalog", "icon", "assets", "installed", "sources"))
+		Expect(ReservedAddonIDs()).To(ConsistOf("apps", "proposals", "artifacts", "resources", "conversations", "dispatch", "relay", "catalog", "icon", "assets", "installed", "sources", "builtin", "pins"))
 		for _, id := range ReservedAddonIDs() {
 			m, _ := ParseManifest(fixture())
 			m.ID = id
@@ -293,5 +293,10 @@ var _ = Describe("Manifest", func() {
 			_, e := ParseManifest([]byte(c))
 			Expect(e).To(HaveOccurred(), w)
 		}
+	})
+	It("reserves the segments of the navigation routes", func() {
+		Expect(ReservedAddonID("builtin")).To(BeTrue())
+		Expect(ReservedAddonID("pins")).To(BeTrue())
+		Expect(ValidAddonID("pins")).To(BeFalse())
 	})
 })

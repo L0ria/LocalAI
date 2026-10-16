@@ -420,6 +420,29 @@ definitions:
       ticket:
         type: string
     type: object
+  builtin.Entry:
+    properties:
+      adminOnly:
+        type: boolean
+      feature:
+        type: string
+      icon:
+        type: string
+      id:
+        type: string
+      kind:
+        $ref: '#/definitions/builtin.Kind'
+      mainPath:
+        type: string
+      titleKey:
+        type: string
+    type: object
+  builtin.Kind:
+    enum:
+    - page
+    type: string
+    x-enum-varnames:
+    - KindPage
   config.Gallery:
     properties:
       artifact_verification:
@@ -6043,6 +6066,30 @@ paths:
       summary: Download a private addon file result
       tags:
       - Addons
+  /api/addons/builtin:
+    get:
+      description: 'Returns the page add-ons that ship with LocalAI (Studio and Talk).
+        Each entry carries only its own gate: the route needs an authenticated caller
+        and no `addons` feature, so a user who reaches Studio today still reaches
+        it from the Add-ons drawer.'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Entries the caller may open
+          schema:
+            additionalProperties:
+              items:
+                $ref: '#/definitions/builtin.Entry'
+              type: array
+            type: object
+        "401":
+          description: Authentication required
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+      summary: List the built-in add-ons the caller may open
+      tags:
+      - AddonNavigation
   /api/addons/conversations/{conversationId}/selection/{addonId}:
     delete:
       description: Removes the authenticated user's selection for the conversation

@@ -1480,6 +1480,21 @@ generation precondition through the request's `generation` field when it is not 
 No MCP tool maps to the Apps routes in this release. The admin mutation tools for addons
 are a later task and will have their own review.
 
+### Built-in add-ons
+
+`GET /api/addons/builtin` lists the page add-ons that ship inside the web bundle, so the
+Add-ons drawer can show them next to the installed apps. The answer is
+`{"builtin": [...]}`, and each entry has an `id`, a `kind` (always `page`), a `titleKey`,
+an `icon` and a `mainPath`, plus a `feature` or `adminOnly` when the entry has a gate.
+Today the list is Studio and Talk. They have no gate, so every authenticated caller sees
+both. The route needs an authenticated caller and does not need the `addons` feature, so a
+user who reaches Studio today still reaches it from the drawer. When authentication is off,
+the caller is the local owner and sees every entry. The answer depends on the caller and is
+sent with `Cache-Control: private, no-store`.
+
+`builtin` and `pins` are reserved add-on IDs: an add-on cannot use them, because the host
+serves `/api/addons/builtin` and `/api/addons/pins`.
+
 ## Add-ons page and management
 
 The web UI serves one page for add-ons at `/app/addons`, shown when the caller holds the

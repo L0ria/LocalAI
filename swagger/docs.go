@@ -474,6 +474,38 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/addons/builtin": {
+            "get": {
+                "description": "Returns the page add-ons that ship with LocalAI (Studio and Talk). Each entry carries only its own gate: the route needs an authenticated caller and no ` + "`" + `addons` + "`" + ` feature, so a user who reaches Studio today still reaches it from the Add-ons drawer.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "AddonNavigation"
+                ],
+                "summary": "List the built-in add-ons the caller may open",
+                "responses": {
+                    "200": {
+                        "description": "Entries the caller may open",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "array",
+                                "items": {
+                                    "$ref": "#/definitions/builtin.Entry"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Authentication required",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/addons/conversations/{conversationId}/selection/{addonId}": {
             "get": {
                 "description": "Returns the resource the authenticated user selected for the conversation and add-on, with the user's current role and display name. The stored reference is keyed by the authenticated user, the conversation and the add-on, and is never a credential: the owner authorizes it again on every use. A reference that was revoked, deleted or never set is one answer: 404 not_selected. Another user's selection of the same conversation ID is never visible. Read-only. No MCP tool maps to this route.",
@@ -7660,6 +7692,41 @@ const docTemplate = `{
                     "type": "string"
                 }
             }
+        },
+        "builtin.Entry": {
+            "type": "object",
+            "properties": {
+                "adminOnly": {
+                    "type": "boolean"
+                },
+                "feature": {
+                    "type": "string"
+                },
+                "icon": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "kind": {
+                    "$ref": "#/definitions/builtin.Kind"
+                },
+                "mainPath": {
+                    "type": "string"
+                },
+                "titleKey": {
+                    "type": "string"
+                }
+            }
+        },
+        "builtin.Kind": {
+            "type": "string",
+            "enum": [
+                "page"
+            ],
+            "x-enum-varnames": [
+                "KindPage"
+            ]
         },
         "config.Gallery": {
             "type": "object",
