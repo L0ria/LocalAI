@@ -2,16 +2,12 @@
 package routes
 
 import (
-	"fmt"
-	"path/filepath"
-
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/http/auth"
 	endpoints "github.com/mudler/LocalAI/core/http/endpoints/addons"
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
 	"github.com/mudler/LocalAI/core/services/addons/pins"
-	"github.com/mudler/xlog"
 	"gorm.io/gorm"
 )
 
@@ -25,43 +21,13 @@ import (
 // corrupt pins file. Startup must stop then: a memory-only fallback would lose
 // every unpin at the next restart.
 func RegisterAddonNavigationRoutes(e *echo.Echo, a *application.Application) error {
-	store, err := newPinStore(a)
+	store, err := a.AddonPinStore()
 	if err != nil {
 		return err
 	}
 	e.GET("/api/addons/builtin", endpoints.ListBuiltin(a.AuthDB()))
 	RegisterAddonPinRoutes(e, a.AddonGateway(), a.AuthDB(), a.AddonOwnershipMode(), &pins.Service{Store: store})
 	return nil
-}
-
-// newPinStore picks the store: the shared account database when there is one,
-// otherwise a file next to the other add-on data (one local owner, one host).
-// Task 4 moves this function into the application, so the routes and the
-// retention sweep share one store.
-func newPinStore(a *application.Application) (pins.Store, error) {
-	return pinStoreFor(a.AuthDB(), a.ApplicationConfig().DataPath)
-}
-
-// pinStoreFor picks the store from the account database and the data path.
-func pinStoreFor(db *gorm.DB, dataPath string) (pins.Store, error) {
-	if db != nil {
-		s, err := pins.NewGormStore(db)
-		if err != nil {
-			return nil, fmt.Errorf("open the add-on pin table: %w", err)
-		}
-		return s, nil
-	}
-	path := ""
-	if dataPath != "" {
-		path = filepath.Join(dataPath, "addon-pins.json")
-	} else {
-		xlog.Warn("No data path and no account database: add-on pins are kept in memory only and do not survive a restart")
-	}
-	s, err := pins.NewFileStore(path)
-	if err != nil {
-		return nil, fmt.Errorf("open the add-on pins file %q: %w", path, err)
-	}
-	return s, nil
 }
 
 // RegisterAddonPinRoutes registers the two user-scoped pin routes. The caller

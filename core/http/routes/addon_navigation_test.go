@@ -92,7 +92,9 @@ var _ = Describe("Add-on navigation routes with real authentication", func() {
 		Expect(w.Code).To(Equal(http.StatusOK), w.Body.String())
 		var got []string
 		Expect(json.Unmarshal(w.Body.Bytes(), &got)).To(Succeed())
-		Expect(got).To(BeEmpty())
+		// The member existed when the routes registered, so the one-time upgrade
+		// seed pinned Studio and Talk for it.
+		Expect(got).To(Equal([]string{"studio", "talk"}))
 
 		put := func(sameOrigin bool) *httptest.ResponseRecorder {
 			r := httptest.NewRequest(http.MethodPut, "/api/addons/pins", strings.NewReader(`["talk","studio"]`))

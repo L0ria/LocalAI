@@ -253,6 +253,11 @@ func (a *Application) startAddonGateway() error {
 	a.addonServer = server
 	a.addonGateway = g
 	a.addonPolicy, a.addonStore = p, store
+	if pinStore, err := a.AddonPinStore(); err != nil {
+		xlog.Warn("addon pin sweep not started", "error", err)
+	} else {
+		a.startAddonPinSweep(a.applicationConfig.Context, pinStore)
+	}
 	go func() { _ = server.Serve(tls.NewListener(listener, server.TLSConfig)) }()
 	go func() { <-a.applicationConfig.Context.Done(); _ = server.Close(); closeState() }()
 	return nil

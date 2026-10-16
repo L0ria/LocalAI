@@ -1511,6 +1511,11 @@ the caller and is sent with `Cache-Control: private, no-store`.
 - **Limit.** A save of more than 32 IDs, or a body that is not a list of strings, is
   refused with `400`. If the add-on owner does not answer, a save is refused with `503`, so
   an outage cannot drop pins.
+- **Retention.** When an add-on is removed, its pins are hidden at once and kept for 30
+  days. If the add-on is installed again inside that window, the pins come back. After 30
+  days the pins are deleted. A background sweep runs every six hours; with several
+  frontends, one of them runs it at a time. A disabled add-on is not removed, so its pins
+  never expire. A sweep that cannot read the add-on owner changes nothing.
 - **Upgrade seed.** A read or a save never pins anything. Once, at the upgrade that adds
   this feature, the accounts that exist then get Studio and Talk pinned. An account created
   later starts with no pins. An unpin stays after a restart.

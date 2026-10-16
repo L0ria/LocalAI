@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"context"
 	"errors"
+	"github.com/mudler/LocalAI/core/services/addons/pins"
 	"math/rand/v2"
 	"net/http"
 	"path/filepath"
@@ -73,12 +74,16 @@ type Application struct {
 	addonResourceExists func(context.Context, policy.ResourceKey) (bool, error)
 	// addonReconcileTick drives the pending-registration retry; nil is a real
 	// 30 second ticker. addonReconcile is that loop once the owner started it.
-	addonReconcileTick   <-chan time.Time
-	addonReconcile       *policy.ReconcileLoop
-	addonGateway         *gateway.Gateway
-	addonServer          *http.Server
-	addonSources         *catalog.Sources
-	addonManager         *addons.Manager
+	addonReconcileTick <-chan time.Time
+	addonReconcile     *policy.ReconcileLoop
+	addonGateway       *gateway.Gateway
+	addonServer        *http.Server
+	addonSources       *catalog.Sources
+	addonManager       *addons.Manager
+	// The pin store is built once so the routes and the retention sweep share it.
+	addonPinStoreOnce    sync.Once
+	addonPinStore        pins.Store
+	addonPinStoreErr     error
 	webSocketTicketsOnce sync.Once
 	webSocketTickets     *auth.WebSocketTickets
 	backendLoader        *config.ModelConfigLoader
