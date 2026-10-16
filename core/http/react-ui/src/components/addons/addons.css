@@ -197,3 +197,23 @@
 @media (max-width: 480px) {
   .ad-recovery__acts .dk-btn { flex: 1 1 auto; }
 }
+
+.ad-drawer__bar { display: flex; flex-wrap: wrap; gap: var(--dk-space-2, 8px); align-items: center; margin-bottom: var(--dk-space-4, 16px); }
+.ad-drawer__search { flex: 1 1 14rem; min-width: 0; }
+.ad-tiles { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr)); gap: var(--dk-space-3, 12px); }
+.ad-tile { position: relative; display: flex; align-items: stretch; border: 1px solid var(--dk-edge); border-radius: var(--dk-radius-1); background: var(--dk-surface, transparent); }
+.ad-tile__open { flex: 1; min-width: 0; display: flex; gap: var(--dk-space-3, 12px); align-items: center; padding: var(--dk-space-3, 12px); color: inherit; text-decoration: none; background: none; border: 0; text-align: start; cursor: pointer; }
+.ad-tile__open:hover { background: var(--dk-hover); }
+.ad-tile__text { display: flex; flex-direction: column; min-width: 0; }
+.ad-tile__title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ad-tile__state { font-size: 0.8125rem; color: var(--dk-text-muted, var(--dk-text)); }
+.ad-tile[data-state='stopped'] .ad-icon { opacity: 0.5; }
+.ad-tile__order { flex: none; display: flex; flex-direction: column; justify-content: center; }
+.ad-tile__move { background: none; border: 0; padding: 0.125rem 0.5rem; color: var(--dk-text-muted, var(--dk-text)); cursor: pointer; }
+.ad-tile__move:focus-visible { outline: 2px solid var(--dk-accent); outline-offset: -2px; }
+.ad-tile__pin { flex: none; width: 2.75rem; background: none; border: 0; border-inline-start: 1px solid var(--dk-edge); color: var(--dk-text-muted, var(--dk-text)); cursor: pointer; }
+.ad-tile__pin[aria-pressed='true'] { color: var(--dk-accent); }
+.ad-tile__open:focus-visible, .ad-tile__pin:focus-visible { outline: 2px solid var(--dk-accent); outline-offset: -2px; }
+.nav-item--muted { opacity: 0.55; }
+.nav-item--sub { padding-inline-start: 2.25rem; }
+@media (max-width: 480px) { .ad-tiles { grid-template-columns: minmax(0, 1fr); } }

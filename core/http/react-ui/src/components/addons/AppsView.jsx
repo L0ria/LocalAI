@@ -1,12 +1,19 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import Icon from '../Icon'
 import LoadingSpinner from '../LoadingSpinner'
 import CatalogEmpty from '../catalog/CatalogEmpty'
 import { pollDelay } from '../catalog/catalogState'
 import { RegistryContext } from '../../addons/registryContext'
+import { navigationItems } from '../../addons/registryState'
+import { useAuth } from '../../context/AuthContext'
+import { FEATURE_ADDONS } from '../../utils/capabilities'
+import SideSheet from '../SideSheet'
+import AddonTile from './AddonTile'
+import { useNavigation } from '../../context/NavigationContext'
+import { buildTiles, filterTiles, resolvePins } from '../../utils/addonTiles'
 import { apiUrl } from '../../utils/basePath'
 import { StateChip, AppIcon, UnknownNotice, UpdateChip } from './AddonBits'
 import { appActions, localizedText, toolSummary } from './addonState'
@@ -23,6 +30,9 @@ export default function AppsView({ api }) {
   const [state, setState] = useState({ status: 'loading', apps: [], error: null, stale: false })
   const [reload, setReload] = useState(0)
   const reloadRef = useRef(() => {})
+  const { hasFeature, isAdmin } = useAuth()
+  // Without the feature there is no list to read and the route would answer 403.
+  const canList = hasFeature(FEATURE_ADDONS)
   // The add-on registry does not read the list again while this tab is open:
   // every list read here is handed to it.
   const registry = useContext(RegistryContext)
@@ -33,6 +43,7 @@ export default function AppsView({ api }) {
   // refresh asked for while one is in flight runs right after it, so there is
   // never more than one chain.
   useEffect(() => {
+    if (!canList) { setState({ status: 'ready', apps: [], error: null, stale: false }); return undefined }
     const ctl = new AbortController()
     let timer = null
     let failures = 0
@@ -66,7 +77,7 @@ export default function AppsView({ api }) {
     reloadRef.current = () => { if (inflight) { queued = true } else { clearTimeout(timer); tick() } }
     tick()
     return () => { alive = false; ctl.abort(); clearTimeout(timer) }
-  }, [api, reload])
+  }, [api, reload, canList])
 
   const actions = useAddonActions(api, { onSettled: () => reloadRef.current() })
 
@@ -83,7 +94,26 @@ export default function AppsView({ api }) {
     })
   }, [actions, api])
 
-  const sorted = useMemo(() => [...state.apps].sort((a, b) => a.id.localeCompare(b.id)), [state.apps])
+  const nav = useNavigation()
+  const [query, setQuery] = useState('')
+  const [params, setParams] = useSearchParams()
+  const [limit, setLimit] = useState(false)
+  const detailId = params.get('detail') || ''
+  const { t: tn } = useTranslation('nav')
+
+  const tiles = useMemo(() => buildTiles(state.apps, nav.builtin, { language: i18n.language }), [state.apps, nav.builtin, i18n.language])
+  const titleOf = useCallback((tile) => (tile.titleKey ? tn(tile.titleKey) : tile.title), [tn])
+  const shown = useMemo(() => filterTiles(tiles, query, titleOf), [tiles, query, titleOf])
+  const pinnedIds = useMemo(() => new Set(resolvePins(nav.pinIds, tiles).map(x => x.id)), [nav.pinIds, tiles])
+  const detail = tiles.find(x => x.id === detailId) || null
+
+  const onPin = async (id) => {
+    if (pinnedIds.has(id)) { await nav.unpin(id); return }
+    const result = await nav.pin(id)
+    if (result.needsUnpin) setLimit(true)
+  }
+  const openDetail = (id) => setParams(prev => { const out = new URLSearchParams(prev); out.set('detail', id); return out })
+  const closeDetail = () => setParams(prev => { const out = new URLSearchParams(prev); out.delete('detail'); return out }, { replace: true })
 
   if (state.status === 'loading') {
     return <div className="op-loading" role="status" aria-label={t('apps.loading')}><LoadingSpinner size="lg" /></div>
@@ -108,14 +138,50 @@ export default function AppsView({ api }) {
           <span>{t('apps.stale')}</span>
         </div>
       )}
-      {sorted.length === 0 ? (
+      <div className="ad-drawer__bar">
+        <input
+          type="search"
+          className="dk-input ad-drawer__search"
+          data-testid="addon-search"
+          aria-label={t('drawer.search')}
+          placeholder={t('drawer.search')}
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+        />
+        {isAdmin && (
+          <>
+            <Link className="dk-btn dk-btn--sm" to="/app/addons?tab=browse" data-testid="addons-browse"><Icon name="search" /> {t('drawer.browse')}</Link>
+            <Link className="dk-btn dk-btn--primary dk-btn--sm" to="/app/addons?tab=browse" data-testid="addons-add"><Icon name="plus" /> {t('drawer.add')}</Link>
+          </>
+        )}
+      </div>
+      {shown.length === 0 ? (
         <CatalogEmpty icon="puzzle" title={t('apps.emptyTitle')} text={t('apps.emptyBody')} />
       ) : (
-        <ul className="ad-grid" aria-label={t('apps.listLabel')}>
-          {sorted.map(app => (
-            <AppCard key={app.id} app={app} t={t} language={i18n.language} actions={actions} onStartStop={startStop} />
+        <ul className="ad-tiles" aria-label={t('apps.listLabel')}>
+          {shown.map(tile => (
+            <AddonTile key={tile.id} tile={tile} pinned={pinnedIds.has(tile.id)} onPin={onPin} onMove={nav.move} onOpenDetail={openDetail} />
           ))}
         </ul>
+      )}
+      {detail && (
+        <SideSheet title={titleOf(detail)} onClose={closeDetail} closeLabel={t('drawer.close')} testId="addon-detail">
+          {detail.app
+            ? (
+              <>
+                <ul className="ad-grid"><AppCard app={detail.app} t={t} language={i18n.language} actions={actions} onStartStop={startStop} /></ul>
+                {navigationItems([detail.app], { language: i18n.language }).map(link => (
+                  <Link key={link.path} className="dk-btn dk-btn--ghost dk-btn--sm" to={link.path}>{link.label}</Link>
+                ))}
+              </>
+            )
+            : <p>{t('drawer.builtinDetail')}</p>}
+        </SideSheet>
+      )}
+      {limit && (
+        <SideSheet title={t('drawer.limitTitle')} onClose={() => setLimit(false)} closeLabel={t('drawer.close')} testId="pin-limit">
+          <p>{t('drawer.limitBody')}</p>
+        </SideSheet>
       )}
     </div>
   )

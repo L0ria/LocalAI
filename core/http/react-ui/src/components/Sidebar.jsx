@@ -9,6 +9,9 @@ import { apiUrl } from '../utils/basePath'
 import { preloadRoute } from '../router'
 import { hubs, hubEntryPath, hubOwnsPath } from './hub/hubConfig'
 import { topDestinations, createDestinations } from '../utils/destinations'
+import { primaryDestinations, visiblePrimary } from '../utils/navigationModel'
+import { useNavigation } from '../context/NavigationContext'
+import PinnedNav from './PinnedNav'
 import { useOperations } from '../hooks/useOperations'
 import Icon from './Icon'
 
@@ -84,6 +87,7 @@ export default function Sidebar({ isOpen, onClose }) {
   const [openSections, setOpenSections] = useState(loadSectionState)
   const { isAdmin, authEnabled, user, logout, hasFeature } = useAuth()
   const { operations } = useOperations()
+  const { builtin } = useNavigation()
   const branding = useBranding()
   const navigate = useNavigate()
   const location = useLocation()
@@ -161,6 +165,11 @@ export default function Sidebar({ isOpen, onClose }) {
   const visibleTopItems = topItems.filter(filterItem)
   // Shared shape for the hub gating helpers (hubConfig.js).
   const auth = { isAdmin, authEnabled, hasFeature, features }
+  // The previous sidebar returns when the operator sets the legacy switch.
+  const legacy = features.addon_navigation === false
+  const hasBuiltin = builtin.length > 0
+  const navAuth = { isAdmin, hasFeature, hasBuiltin }
+  const primary = visiblePrimary(primaryDestinations, navAuth)
 
   // One badge, on the always-visible sidebar entry. The Operate tab bar only
   // exists while the user is on an Operate route, so badging a tab instead
@@ -210,13 +219,15 @@ export default function Sidebar({ isOpen, onClose }) {
         <nav className="sidebar-nav">
           {/* Top-level items */}
           <div className="sidebar-section">
-            {visibleTopItems.map(item => (
+            {(legacy ? visibleTopItems : [...visibleTopItems.filter(i => i.path === '/app'), ...primary]).map(item => (
               <NavItem key={item.path} item={item} onClose={onClose} collapsed={collapsed} />
             ))}
           </div>
 
+          {!legacy && <PinnedNav onClose={onClose} collapsed={collapsed} />}
+
           {/* Collapsible sections */}
-          {sections.map(section => {
+          {(legacy ? sections : sections.filter(s => s.hubs)).map(section => {
             const visibleItems = getVisibleSectionItems(section)
             if (visibleItems.length === 0) return null
 

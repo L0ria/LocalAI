@@ -261,6 +261,9 @@ type ApplicationConfig struct {
 	// server with this flag; runtime-toggleable via /api/settings.
 	DisableLocalAIAssistant bool
 
+	// LegacyNavigation shows the previous sidebar. See WithLegacyNavigation.
+	LegacyNavigation bool
+
 	// Branding / whitelabeling — runtime-mutable via /api/settings (text) and
 	// /api/branding/asset/:kind (binary uploads). All values optional; empty
 	// strings fall back to bundled LocalAI defaults.
@@ -1169,6 +1172,15 @@ func WithAuthAPIKeyHMACSecret(secret string) AppOption {
 func WithAuthDefaultAPIKeyExpiry(expiry string) AppOption {
 	return func(o *ApplicationConfig) {
 		o.Auth.DefaultAPIKeyExpiry = expiry
+	}
+}
+
+// WithLegacyNavigation brings the old sidebar back without a rebuild. The UI
+// reads it from /api/features. It is a rollback switch and is removed one
+// release after the add-on navigation ships.
+func WithLegacyNavigation(on bool) AppOption {
+	return func(o *ApplicationConfig) {
+		o.LegacyNavigation = on
 	}
 }
 

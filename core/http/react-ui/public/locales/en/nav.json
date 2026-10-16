@@ -17,7 +17,8 @@
     "recognition": "Recognition",
     "build": "Build",
     "operate": "Operate",
-    "workspace": "Workspace"
+    "workspace": "Workspace",
+    "pinned": "Pinned"
   },
   "operate": {
     "inference": "Inference",

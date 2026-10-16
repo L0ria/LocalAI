@@ -1531,18 +1531,39 @@ serves `/api/addons/builtin` and `/api/addons/pins`.
 
 ## Add-ons page and management
 
-The web UI serves one page for add-ons at `/app/addons`, shown when the caller holds the
-`addons` feature. Everyone sees the **Apps** tab, which is the list above. Administrators
-also see **Browse**, **Installed** and **Libraries**. The tabs are a convenience: the owner
-checks administration again on every call, so a request that skips the page is denied the
-same way (403).
+The web UI serves one page for add-ons at `/app/addons`, the **Add-ons drawer**. It is
+shown to a caller who holds the `addons` feature, and to anyone who can open a built-in
+tile (Studio, Talk), so no one loses a page they can open today. Administrators also
+reach **Browse**, **Installed** and **Libraries** from the drawer. The tabs are a
+convenience: the owner checks administration again on every call, so a request that skips
+the page is denied the same way (403).
+
+The sidebar has four items: **Chat**, **Models**, **Add-ons** and **Settings**. Below them
+a **Pinned** section lists the add-ons the user pinned, in the order the user chose. Pins
+belong to the user, follow the user across browsers, and are capped at eight in the
+sidebar. A pin whose add-on is stopped is muted and opens the detail view; a pin whose
+add-on was removed or is hidden is not drawn. An empty section is not drawn. Operators who
+need the previous sidebar can set `LOCALAI_LEGACY_NAVIGATION=true` (flag
+`--legacy-navigation`). The switch is a rollback aid and is removed one release after the
+new navigation ships; the UI reads it from the `addon_navigation` key of `/api/features`.
 
 A tab is addressed as `/app/addons?tab=browse|installed|libraries`. The management link of
 an app (`/app/addons?manage=ID`) opens the Installed tab with that addon's details open.
 
-### The Apps tab
+### The drawer
 
-The Apps tab draws `GET /api/addons/apps`: the icon from the host's icon route, the
+The drawer is a grid of tiles with a search box. The built-in tiles (Studio, Talk) come
+first, then the installed add-ons by identifier. Each tile has a pin control, a real
+button with a name and a pressed state, so it works from the keyboard; a pinned tile also
+has buttons to move it earlier or later. Pinning a ninth add-on opens a dialog that asks
+the user to unpin one first. A running tile opens the add-on; every other tile opens a
+detail view (`/app/addons?detail=ID`) and never the main page, because the main page
+needs a live process. Administrators also see **Browse add-ons** and **Add a new add-on**.
+A caller without the `addons` feature sees only the built-in tiles, and the page does not
+call `GET /api/addons/apps` for that caller.
+
+The detail view shows the entry as described next, and the pages the add-on names in
+`ui.navigation`. The drawer draws `GET /api/addons/apps`: the icon from the host's icon route, the
 title in the interface language (falling back to the default text and then to the
 identifier), the description, a state chip (`running`, `starting`, `failed`, `stopped`),
 an **update pending** chip when the owner's cached check reports one, an **Open** link only when the entry
@@ -2052,8 +2073,8 @@ as well, and so does closing the tab.
 
 ### Navigation entries
 
-A page named in `ui.navigation` is listed in the second row of the Add-ons tab while the
-add-on is enabled, not failed and compatible with the host SDK. The same registry keeps
+A page named in `ui.navigation` is linked in the detail view of the add-on and under its
+pinned entry while the add-on is enabled, not failed and compatible with the host SDK. The same registry keeps
 the validated chat actions per add-on and generation and removes them with the add-on.
 Declared chat actions are drawn by the host in the chat page (see
 [Extension points and slots](#extension-points-and-slots)); a bare identifier has no
@@ -2099,7 +2120,7 @@ text, history, the model or any host state.
 |---|---|---|
 | `chat.composer.actions` | In an overflow menu next to the attach buttons of the composer. Actions of placement `composer` are menu items. Components are drawn in the menu. | `conversationId`, `disabled` |
 | `chat.message.actions` | In the action row of each message. Actions of placement `message` are icon buttons. | `conversationId`, `messageId`, `role` |
-| `app.nav` | At the end of the second navigation row of the Add-ons tab, after the links of `ui.navigation`. | none |
+| `app.nav` | Not drawn by the drawer navigation. The slot kept its place for add-ons that declare it. | none |
 | `settings.sections` | At the end of the Settings page, one section for each component, under a heading with the title and icon of the add-on. | none |
 
 `messageId` is the position of the message in the conversation. `role` is `user`,

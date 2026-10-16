@@ -643,7 +643,9 @@ test('registry: navigation and chat actions come only from usable add-ons of the
 })
 
 test('registry: the Add-ons tab lists page links only when the registry has usable add-ons', () => {
-  const tab = buildHub.tabs.find(t => t.id === 'addons')
+  // The Build hub no longer has an Add-ons tab; the branch of visibleItems that
+  // appends add-on links stays, so it is driven with a stand-in tab.
+  const tab = { id: 'addons', labelKey: 'items.addons', icon: 'puzzle', items: [{ path: '/app/addons', labelKey: 'items.addons', feature: 'addons', exact: true }], addonNavigation: true }
   const auth = { isAdmin: false, authEnabled: true, hasFeature: () => true, features: {} }
   assert.deepEqual(visibleItems(tab, auth).map(i => i.path), ['/app/addons'])
   const nav = navigationItems([app()], { language: 'en' })

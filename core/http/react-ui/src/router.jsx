@@ -166,6 +166,8 @@ import HubLayout from './components/hub/HubLayout'
 // Only referenced from JSX below, which eslint cannot see.
 // eslint-disable-next-line no-unused-vars
 import { AddonRegistryProvider } from './addons/registry'
+import { useAuth } from './context/AuthContext'
+import { NavigationProvider, useNavigation } from './context/NavigationContext'
 import { buildHub, operateHub } from './components/hub/hubConfig'
 
 // The Agent chat page became the agent's own page and its runs. An old chat
@@ -185,6 +187,14 @@ function BrowseRedirect() {
 
 function Admin({ children }) {
   return <RequireAdmin>{children}</RequireAdmin>
+}
+
+function DrawerGate({ children }) {
+  const { isAdmin, hasFeature, loading } = useAuth()
+  const { builtin, status } = useNavigation()
+  if (loading || status === 'idle' || status === 'loading') return null
+  if (!isAdmin && !hasFeature('addons') && builtin.length === 0) return <Navigate to="/app" replace />
+  return children
 }
 
 function Feature({ feature, disabled, children }) {
@@ -215,6 +225,11 @@ const appChildren = [
   { path: 'studio/:tab', element: <Studio /> },
   { path: 'talk', element: <Talk /> },
   { path: 'account', element: <Account /> },
+  // The Add-ons drawer. A viewer without the addons feature still reaches it
+  // when a built-in tile (Studio, Talk) is theirs to open, so no one loses a
+  // page they can open today.
+  { path: 'addons', element: <DrawerGate><Addons /></DrawerGate> },
+  { path: 'addons/:addonId/*', element: <Feature feature="addons"><AddonRoute /></Feature> },
 
   // Build hub: one tab bar over the tool landing pages. Deep create/edit/chat
   // flows below render full-width, without the bar.
@@ -238,10 +253,6 @@ const appChildren = [
       { path: 'voice/:model', element: <Feature feature="voice_recognition" disabled={<FeatureOff feature="voice" />}><VoiceRecognition /></Feature> },
       { path: 'voice-library', element: <Admin><VoiceRecognition tab="speech" /></Admin> },
       { path: 'import-model', element: <Admin><ImportModel /></Admin> },
-      // Add-ons: Apps for everyone with the feature; Browse, Installed and
-      // Libraries are administrator tabs that the server checks on every call.
-      { path: 'addons', element: <Feature feature="addons"><Addons /></Feature> },
-      { path: 'addons/:addonId/*', element: <Feature feature="addons"><AddonRoute /></Feature> },
     ],
   },
   // Build deep flows: full-width, no tab bar.
@@ -316,7 +327,7 @@ export const router = createBrowserRouter([
   },
   {
     path: '/app',
-    element: <RequireAuth><AddonRegistryProvider><App /></AddonRegistryProvider></RequireAuth>,
+    element: <RequireAuth><AddonRegistryProvider><NavigationProvider><App /></NavigationProvider></AddonRegistryProvider></RequireAuth>,
     children: appChildren,
   },
   // Backward compatibility: redirect /browse/* to /app/*

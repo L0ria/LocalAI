@@ -20,12 +20,14 @@ test.describe('Navigation', () => {
     await expect(models.locator('.nav-label')).toHaveText('Models')
   })
 
-  test('Create stays an inline tier with Chat, Studio and Talk', async ({ page }) => {
+  test('the sidebar has Chat, Models, Add-ons and Settings, and no Create tier', async ({ page }) => {
     await page.goto('/app')
-    await expect(page.locator('.sidebar-section-title', { hasText: 'Create' })).toBeVisible()
-    await expect(page.locator('.sidebar-nav a.nav-item[href="/app/chat"]')).toBeVisible()
-    await expect(page.locator('.sidebar-nav a.nav-item[href="/app/studio"]')).toBeVisible()
-    await expect(page.locator('.sidebar-nav a.nav-item[href="/app/talk"]')).toBeVisible()
+    await expect(page.locator('.sidebar-section-title', { hasText: 'Create' })).toHaveCount(0)
+    for (const href of ['/app/chat', '/app/models', '/app/addons', '/app/settings']) {
+      await expect(page.locator(`.sidebar-nav a.nav-item[href="${href}"]`)).toBeVisible()
+    }
+    // Studio and Talk are built-in tiles of the Add-ons drawer; the sidebar lists them only as pins.
+    await expect(page.locator('.sidebar-nav a.nav-item[href="/app/studio"]')).toHaveCount(await page.getByTestId('pinned-nav').locator('a[href="/app/studio"]').count())
   })
 
   test('Build and Operate sit under a Workspace label', async ({ page }) => {
