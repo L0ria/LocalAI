@@ -247,6 +247,7 @@
       "binds lifecycle lookup to current admin and original actor without writes or repair",
       "cancels status lookup while a lifecycle writer holds the journal lock",
       "denies enable and disable for a stale generation without recording anything",
+      "lists the identifiers of installed addons, disabled ones included",
       "lists apps by visibility and serves an icon only for a visible app at its generation",
       "reports the supervisor state of an app through a crash and a restart",
       "reads a flat directory in batches and stops at the entry bound",
@@ -1591,6 +1592,7 @@
       "shows controls and the management link only to administrators and never leaks owner details",
       "describes the immutable UI assets of an enabled addon by the package digest and never otherwise",
       "denies enable and disable for a stale generation without recording anything",
+      "lists the identifiers of installed addons, disabled ones included",
       "lists apps by visibility and serves an icon only for a visible app at its generation",
       "cancels status lookup while a lifecycle writer holds the journal lock",
       "retries runtime synchronization after canceled disable and generation upgrade",
@@ -1746,6 +1748,7 @@
         "path": ".cache/addons/logs/apps-lifecycle.json",
         "cases": [
           "denies enable and disable for a stale generation without recording anything",
+          "lists the identifiers of installed addons, disabled ones included",
           "lists apps by visibility and serves an icon only for a visible app at its generation",
           "cancels status lookup while a lifecycle writer holds the journal lock",
           "retries runtime synchronization after canceled disable and generation upgrade",

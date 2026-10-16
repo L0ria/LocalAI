@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"sync"
 	"syscall"
@@ -817,6 +818,28 @@ func (m *Manager) Apps(ctx context.Context, actor contract.Actor) ([]apps.App, e
 		snaps = append(snaps, snap)
 	}
 	return apps.Build(snaps, isAdmin), nil
+}
+
+// InstalledIDs returns the identifiers of every installed addon, enabled or
+// not, sorted. It is for the host's own housekeeping (the pin sweep); it takes
+// no actor and returns no detail.
+func (m *Manager) InstalledIDs(ctx context.Context) ([]string, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if e := m.check(ctx); e != nil {
+		return nil, e
+	}
+	if m.uncertain || m.runtimeRecoveryRequired {
+		return nil, ErrRecoveryRequired
+	}
+	out := make([]string, 0, len(m.journal.Addons))
+	for id, st := range m.journal.Addons {
+		if st.Installed {
+			out = append(out, id)
+		}
+	}
+	sort.Strings(out)
+	return out, nil
 }
 
 func currentReceipt(st Status) (packages.PackageReceipt, bool) {

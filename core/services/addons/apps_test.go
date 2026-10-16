@@ -74,6 +74,22 @@ var _ = Describe("apps and stale lifecycle generations", func() {
 		Expect(e).To(MatchError(ErrForbidden))
 	})
 
+	It("lists the identifiers of installed addons, disabled ones included", func() {
+		cfg, c, i := fixture()
+		m := open(cfg, c, i)
+		for id, st := range map[string]Status{
+			"on":      {Installed: true, DesiredEnabled: true, Generation: 1},
+			"off":     {Installed: true, Generation: 1},
+			"removed": {Installed: false, Generation: 1},
+		} {
+			st.AddonID = id
+			m.journal.Addons[id] = st
+		}
+		got, e := m.InstalledIDs(ctx)
+		Expect(e).NotTo(HaveOccurred())
+		Expect(got).To(Equal([]string{"off", "on"}))
+	})
+
 	It("lists apps by visibility and serves an icon only for a visible app at its generation", func() {
 		cfg, c, i := fixture()
 		m := open(cfg, c, i)
