@@ -320,7 +320,7 @@ func (m *Manager) Submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 		for _, c := range cause {
 			var refusal *contract.SDKRefusal
 			if errors.As(c, &refusal) {
-				return op.Status, fmt.Errorf("%w: %s", ErrOperationFailed, refusal)
+				return op.Status, fmt.Errorf("%w: %w", ErrOperationFailed, refusal)
 			}
 		}
 		return op.Status, ErrOperationFailed

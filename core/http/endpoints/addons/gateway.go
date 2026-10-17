@@ -138,6 +138,12 @@ func resultError(c echo.Context, e error) error {
 	if gateway.StatusFor(e) == http.StatusServiceUnavailable {
 		return failure(c, 503, "Addon owner unavailable")
 	}
+	// An add-on built for another SDK range is refused at install. The
+	// administrator gets that text and no other internal error text.
+	var refusal *contract.SDKRefusal
+	if errors.As(e, &refusal) {
+		return c.JSON(403, AddonErrorResponse{Error: AddonError{Type: "sdk_incompatible", Code: 403, Message: refusal.Error()}})
+	}
 	for _, t := range []struct {
 		err     error
 		status  int

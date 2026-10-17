@@ -12,6 +12,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -331,7 +332,32 @@ func typedError(w http.ResponseWriter, e error) {
 		_ = json.NewEncoder(w).Encode(resourceWire{Type: wireInvalid})
 		return
 	}
+	var refusal *contract.SDKRefusal
+	if errors.As(e, &refusal) {
+		// The administrator is told why the add-on cannot be installed. Only
+		// the three numbers cross the wire, never the error text.
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusForbidden)
+		_ = json.NewEncoder(w).Encode(sdkWire{Type: wireSDK, Min: refusal.Min, Max: refusal.Max, Host: refusal.Host})
+		return
+	}
 	http.Error(w, "addon request failed", StatusFor(e))
+}
+
+// wireSDK types the owner's refusal of an add-on built for another SDK range.
+const wireSDK = "sdk_incompatible"
+
+type sdkWire struct {
+	Type string `json:"type"`
+	Min  uint64 `json:"min"`
+	Max  uint64 `json:"max"`
+	Host uint64 `json:"host"`
+}
+
+// SDKRefusalError is the error of a failed operation whose cause is an SDK
+// refusal: it matches addons.ErrOperationFailed and carries the typed cause.
+func SDKRefusalError(r *contract.SDKRefusal) error {
+	return fmt.Errorf("%w: %w", addons.ErrOperationFailed, r)
 }
 
 // trackedWriter records whether any response byte or status was committed.
@@ -420,6 +446,10 @@ func (c *Carrier) send(ctx context.Context, a contract.Actor, wire wireRequest) 
 				// The owner types its denials, so a quota or a block that the
 				// owner decided is the same answer from every frontend.
 				return nil, resourceReplyError(resp.Body, resp.StatusCode, wire.Request.OperationID)
+			}
+			var b sdkWire
+			if decode(io.LimitReader(resp.Body, 4096), &b) == nil && b.Type == wireSDK {
+				return nil, SDKRefusalError(&contract.SDKRefusal{Min: b.Min, Max: b.Max, Host: b.Host})
 			}
 			return nil, ErrForbidden
 		}
