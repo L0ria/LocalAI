@@ -33,8 +33,6 @@ test.describe('Hub tabs: the right tab for each route', () => {
     ['/app/fine-tune', 'fine-tune'],
     ['/app/quantize', 'quantize'],
     ['/app/import-model', 'import'],
-    ['/app/voice', 'voices'],
-    ['/app/voice-library', 'voices'],
     ['/app/face', 'faces'],
   ]
   for (const [path, id] of build) {

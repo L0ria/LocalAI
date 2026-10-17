@@ -1,5 +1,9 @@
 import { test, expect } from '@playwright/test'
-import { MEMBER, app, sessionFor, mockAddons } from './addons-fixtures.js'
+import fs from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { ADMIN, MEMBER, app, sessionFor, mockAddons } from './addons-fixtures.js'
+import { clipFile, match, mockIdentity, people } from './identity-fixtures.js'
 
 const STUDIO = { id: 'studio', kind: 'page', titleKey: 'items.studio', icon: 'palette', mainPath: '/app/studio' }
 const TALK = { id: 'talk', kind: 'page', titleKey: 'items.talk', icon: 'phone', mainPath: '/app/talk' }
@@ -201,5 +205,122 @@ test.describe('Add-on navigation: the Add-ons hub tab and the route in both layo
     await page.route('**/api/auth/status', route => route.fulfill({ json: sessionFor(MEMBER, { addons: true, '3d': false }) }))
     await page.goto('/app/3d')
     await expect(page).toHaveURL(/\/app$/)
+  })
+})
+
+// The built Voice module, served the way the owner serves it (addons-shell.spec.js
+// does the same for the uifixture module).
+const VOICE_DIST = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../addons/voice/ui/dist')
+const VOICE_DIGEST = 'd'.repeat(64)
+const VOICE_BASE = `/api/addons/voice/assets/${VOICE_DIGEST}`
+
+const voiceApp = () => app({
+  id: 'voice', name: 'voice', title: 'Voice', icon: undefined, generation: 1, version: '0.1.0', mainPage: '/app/addons/voice/recognition',
+  ui: { entry: `${VOICE_BASE}/ui/voice.js`, css: [`${VOICE_BASE}/ui/voice.css`], sdk: { min: 2, max: 2 }, pages: ['recognition', 'library', 'create', 'speech'], navigation: [], chatActions: [] },
+})
+
+async function serveVoice(page) {
+  await page.route(/\/api\/addons\/voice\/assets\//, route => {
+    const file = new URL(route.request().url()).pathname.split('/').slice(6).join('/')
+    const known = { 'ui/voice.js': 'text/javascript', 'ui/voice.css': 'text/css' }
+    if (!known[file]) return route.fulfill({ status: 403, json: { error: { type: 'addon_error', message: 'Addon request denied' } } })
+    return route.fulfill({ status: 200, contentType: known[file], headers: { 'cache-control': 'no-store' }, body: fs.readFileSync(path.join(VOICE_DIST, file)) })
+  })
+}
+
+async function asAdmin(page, features = {}) {
+  await page.route('**/api/auth/status', route => route.fulfill({ json: sessionFor(ADMIN, { addons: true, voice_recognition: true, ...features }) }))
+}
+
+async function expectVoicesPage(page) {
+  await expect(page.getByTestId('voices-page')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Voices', level: 1 })).toBeVisible()
+  for (const name of [/Speakers/, /Speech voices/, /From a recording/]) {
+    await expect(page.getByRole('tab', { name })).toBeVisible()
+  }
+}
+
+test.describe('Add-on navigation: the Voice recognition page', () => {
+  test('the Voice add-on draws the same page, test ids and tabs as the core page', async ({ page }) => {
+    await setup(page, { apps: [voiceApp()] })
+    await asAdmin(page)
+    await serveVoice(page)
+    await mockIdentity(page)
+    await page.goto('/app/addons/voice/recognition')
+    await expectVoicesPage(page)
+    await expect(page.locator('[data-testid="addon-surface"][data-addon="voice"]')).toBeVisible()
+    await expect(page.getByTestId('known-empty')).toContainText('Nobody enrolled in this browser yet')
+  })
+
+  test('the core page, with the add-on absent, shows the same test ids and tabs', async ({ page }) => {
+    await setup(page, { apps: [] })
+    await asAdmin(page)
+    await mockIdentity(page)
+    await page.goto('/app/voice')
+    await expect(page).toHaveURL(/\/app\/voice$/)
+    await expectVoicesPage(page)
+  })
+
+  test('an old model link ends in the add-on with the model in the query', async ({ page }) => {
+    await setup(page, { apps: [voiceApp()] })
+    await asAdmin(page)
+    await serveVoice(page)
+    await mockIdentity(page)
+    await page.goto('/app/voice/org%2Fname')
+    await expect(page).toHaveURL(/\/app\/addons\/voice\/recognition\?model=org%2Fname$/)
+    await expect(page.getByTestId('voices-page')).toBeVisible()
+  })
+
+  test('a viewer without voice_recognition gets the off notice in the add-on', async ({ page }) => {
+    await setup(page, { apps: [voiceApp()] })
+    // An administrator holds every feature, so the viewer is a member.
+    await page.route('**/api/auth/status', route => route.fulfill({ json: sessionFor(MEMBER, { addons: true, voice_recognition: false }) }))
+    await serveVoice(page)
+    await page.goto('/app/addons/voice/recognition')
+    await expect(page.getByTestId('voice-off')).toBeVisible()
+    await expect(page.getByTestId('voices-page')).toHaveCount(0)
+  })
+
+  test('the Build hub has no Voices tab', async ({ page }) => {
+    await setup(page, { apps: [] })
+    await asAdmin(page)
+    await page.goto('/app/build')
+    await expect(page.locator('.dk-hubtabs')).toBeVisible()
+    await expect(page.locator('.dk-hubtabs [data-hub-tab="voices"]')).toHaveCount(0)
+    await expect(page.locator('.dk-hubtabs [data-hub-tab="faces"]')).toBeVisible()
+  })
+
+  test('the add-on page identifies, enrols from a side panel and holds a removal behind Undo', async ({ page }) => {
+    await setup(page, { apps: [voiceApp()] })
+    await asAdmin(page)
+    await serveVoice(page)
+    const calls = await mockIdentity(page, { stored: people, identify: { matches: [match('v-marta', 'Marta Rossi', 0.18), match('v-jonas', 'Jonas Weber', 0.41)] } })
+    await page.goto('/app/addons/voice/recognition')
+    await expect(page.getByTestId('voices-page')).toBeVisible()
+
+    await page.locator('#voice-probe-audio-file').setInputFiles(clipFile())
+    await expect(page.getByTestId('voice-probe-clip')).toHaveAttribute('data-state', 'filled')
+    await page.getByTestId('identify-go').click()
+    await expect(page.getByTestId('verdict')).toContainText('Probably Marta Rossi')
+    await expect(page.getByTestId('distance-scale')).toBeVisible()
+    expect(calls.identify).toHaveLength(1)
+    expect(calls.identify[0].model).toBe('wespeaker-resnet34')
+
+    await page.getByTestId('enrol-open').click()
+    const sheet = page.getByTestId('enrol-sheet')
+    await expect(sheet).toBeVisible()
+    await sheet.locator('#voice-enrol-audio-file').setInputFiles(clipFile('new.wav', 6))
+    await sheet.locator('#voice-enrol-name').fill('Ada Byron')
+    await sheet.getByLabel(/This person agreed/).check()
+    await sheet.getByRole('button', { name: /^Enrol/ }).click()
+    await expect.poll(() => calls.register.length).toBe(1)
+    expect(calls.register[0].name).toBe('Ada Byron')
+    await expect(sheet).toHaveCount(0)
+    await expect(page.getByTestId('known-list')).toContainText('Ada Byron')
+
+    await page.getByRole('button', { name: 'Remove Jonas Weber' }).click()
+    await expect(page.getByRole('status').filter({ hasText: 'Jonas Weber' })).toBeVisible()
+    await page.getByRole('button', { name: 'Undo' }).first().click()
+    expect(calls.forget).toHaveLength(0)
   })
 })

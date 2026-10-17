@@ -61,7 +61,7 @@ test.describe('Navigation', () => {
     await page.goto('/app/agents')
     const bar = page.locator('.dk-hubtabs')
     await expect(bar).toBeVisible()
-    for (const id of ['overview', 'agents', 'skills', 'memory', 'jobs', 'fine-tune', 'quantize', 'import', 'voices', 'faces']) {
+    for (const id of ['overview', 'agents', 'skills', 'memory', 'jobs', 'fine-tune', 'quantize', 'import', 'faces']) {
       await expect(bar.locator(`[data-hub-tab="${id}"]`)).toBeVisible()
     }
     await expect(bar.locator('a[href="/app/fine-tune"]')).toBeVisible()
