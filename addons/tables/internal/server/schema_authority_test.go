@@ -5,7 +5,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/mudler/LocalAI/addons/tables/internal/server"
+	"github.com/mudler/LocalAI/addons/internal/protocol"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -29,9 +29,9 @@ var _ = Describe("the add-on's own schema authority", func() {
 				a[k] = v
 			}
 			_, e := r.t.Preview(ctx, r.env("editor", "op-"+tool, "preview", "write", a))
-			Expect(errors.Is(e, server.ErrForbidden)).To(BeTrue(), "preview: %v", e)
+			Expect(errors.Is(e, protocol.ErrForbidden)).To(BeTrue(), "preview: %v", e)
 			_, e = r.t.Apply(ctx, r.env("editor", "op-"+tool, "apply", "write", a), contract.Revision{Schema: 1})
-			Expect(errors.Is(e, server.ErrForbidden)).To(BeTrue(), "apply: %v", e)
+			Expect(errors.Is(e, protocol.ErrForbidden)).To(BeTrue(), "apply: %v", e)
 		})
 		It("refuses "+tool+" under the schema action with the wrong scope or no actor", func() {
 			r := newExportRig()
@@ -40,9 +40,9 @@ var _ = Describe("the add-on's own schema authority", func() {
 				a[k] = v
 			}
 			_, e := r.t.Preview(ctx, r.env("owner", "op-"+tool, "apply", "schema", a))
-			Expect(errors.Is(e, server.ErrForbidden)).To(BeTrue(), "preview with scope apply: %v", e)
+			Expect(errors.Is(e, protocol.ErrForbidden)).To(BeTrue(), "preview with scope apply: %v", e)
 			_, e = r.t.Apply(ctx, r.env("", "op-"+tool, "apply", "schema", a), contract.Revision{Schema: 1})
-			Expect(errors.Is(e, server.ErrForbidden)).To(BeTrue(), "apply without an actor: %v", e)
+			Expect(errors.Is(e, protocol.ErrForbidden)).To(BeTrue(), "apply without an actor: %v", e)
 		})
 	}
 	It("still previews and applies a schema change under the schema action", func() {

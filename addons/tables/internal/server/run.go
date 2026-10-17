@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/mudler/LocalAI/addons/internal/protocol"
 	"github.com/mudler/LocalAI/addons/tables/internal/store"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
@@ -28,11 +29,11 @@ func Run(args []string, hooks Hooks) int {
 	if len(args) != 2 || args[1] != "--localai-addon-v1" {
 		return 2
 	}
-	startup, rest, err := ReadStartup(os.NewFile(4, "startup"))
+	startup, rest, err := protocol.ReadStartup(os.NewFile(4, "startup"))
 	if err != nil || !filepath.IsAbs(startup.DataDir) {
 		return 3
 	}
-	ExitWithParent(rest)
+	protocol.ExitWithParent(rest)
 	listener, err := net.FileListener(os.NewFile(3, "listener"))
 	if err != nil {
 		return 6
@@ -62,7 +63,7 @@ func Run(args []string, hooks Hooks) int {
 	if hooks.Runtime != nil {
 		rt = hooks.Runtime(rt, startup.DataDir)
 	}
-	if err := Serve(context.Background(), listener, startup, rt); err != nil {
+	if err := protocol.Serve(context.Background(), listener, startup, rt); err != nil {
 		return 8
 	}
 	return 0

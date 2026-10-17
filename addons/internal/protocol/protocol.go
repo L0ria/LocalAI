@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 
-// Package server speaks the LocalAI addon runtime protocol for Tables: the
+// Package protocol speaks the LocalAI addon runtime protocol: the
 // startup handshake, authenticated loopback requests, previews, applies,
 // receipts and outputs. It mirrors the host's wire types instead of importing
-// the owner's packages, so the Tables executable links none of the host.
-package server
+// the owner's packages, so an add-on executable links none of the host.
+package protocol
 
 import (
 	"context"

@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/mudler/LocalAI/addons/internal/protocol"
 	"github.com/mudler/LocalAI/addons/tables/internal/server"
 	"github.com/mudler/LocalAI/addons/tables/internal/store"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
@@ -115,7 +116,7 @@ var _ = Describe("rows-export outputs", func() {
 		// A completed stream removes the staged file and the handle.
 		Expect(r.files()).To(BeEmpty())
 		_, e = r.open("alice", "op-1", o.Handle)
-		Expect(errors.Is(e, server.ErrNotFound)).To(BeTrue())
+		Expect(errors.Is(e, protocol.ErrNotFound)).To(BeTrue())
 	})
 
 	It("refuses a handle from another user, another operation, another database or after expiry, and removes expired files", func() {
@@ -124,22 +125,22 @@ var _ = Describe("rows-export outputs", func() {
 		Expect(e).NotTo(HaveOccurred())
 		h := res.Outputs[0].Handle
 		_, e = r.open("bob", "op-1", h)
-		Expect(errors.Is(e, server.ErrNotFound)).To(BeTrue(), "another user")
+		Expect(errors.Is(e, protocol.ErrNotFound)).To(BeTrue(), "another user")
 		_, e = r.open("alice", "op-2", h)
-		Expect(errors.Is(e, server.ErrNotFound)).To(BeTrue(), "another operation")
+		Expect(errors.Is(e, protocol.ErrNotFound)).To(BeTrue(), "another operation")
 		env := r.env("alice", "op-1", "output", "read", map[string]any{"tool": "rows-export", "table": "People"})
 		env.Request.ResourceID = "db-two"
 		_, e = r.t.OpenOutput(context.Background(), env, h)
-		Expect(errors.Is(e, server.ErrNotFound)).To(BeTrue(), "another database")
+		Expect(errors.Is(e, protocol.ErrNotFound)).To(BeTrue(), "another database")
 		_, e = r.open("alice", "op-1", "x00000000000000000000000000000000")
-		Expect(errors.Is(e, server.ErrNotFound)).To(BeTrue(), "unknown handle")
+		Expect(errors.Is(e, protocol.ErrNotFound)).To(BeTrue(), "unknown handle")
 		_, e = r.open("alice", "op-1", "../../etc/passwd")
-		Expect(errors.Is(e, server.ErrNotFound)).To(BeTrue(), "a path is not a handle")
+		Expect(errors.Is(e, protocol.ErrNotFound)).To(BeTrue(), "a path is not a handle")
 		Expect(r.files()).To(HaveLen(1), "denied opens do not consume the file")
 
 		r.clock = r.clock.Add(time.Hour)
 		_, e = r.open("alice", "op-1", h)
-		Expect(errors.Is(e, server.ErrNotFound)).To(BeTrue(), "expired")
+		Expect(errors.Is(e, protocol.ErrNotFound)).To(BeTrue(), "expired")
 		Expect(r.files()).To(BeEmpty())
 	})
 
@@ -198,7 +199,7 @@ var _ = Describe("rows-export outputs", func() {
 		if os.Geteuid() != 0 {
 			_, e := r.export("alice", "op-1", nil)
 			Expect(e).To(HaveOccurred(), "an unwritable export directory is unavailable, not a success")
-			Expect(errors.Is(e, server.ErrBadRequest)).To(BeFalse())
+			Expect(errors.Is(e, protocol.ErrBadRequest)).To(BeFalse())
 		}
 		Expect(os.Chmod(r.dir, 0o700)).To(Succeed())
 
@@ -222,21 +223,21 @@ var _ = Describe("rows-export outputs", func() {
 		r := newExportRig()
 		args := map[string]any{"tool": "rows-export", "table": "People"}
 		_, e := r.t.Read(context.Background(), r.env("alice", "op-1", "read", "write", args))
-		Expect(errors.Is(e, server.ErrForbidden)).To(BeTrue())
+		Expect(errors.Is(e, protocol.ErrForbidden)).To(BeTrue())
 		for _, extra := range []map[string]any{{"limit": 5}, {"cursor": "x"}, {"rows": []any{}}, {"set": map[string]any{}}, {"ids": []int{1}}, {"bogus": 1}, {"aggregates": []any{}}} {
 			_, e = r.export("alice", "op-x", extra)
-			Expect(errors.Is(e, server.ErrBadRequest)).To(BeTrue(), "%v", extra)
+			Expect(errors.Is(e, protocol.ErrBadRequest)).To(BeTrue(), "%v", extra)
 		}
 		Expect(r.files()).To(BeEmpty())
 	})
 
 	It("serves the bytes on the protocol output route to the matching envelope only", func() {
 		r := newExportRig()
-		startup := server.Startup{
-			Registration: server.Registration{AddonID: "tables", Generation: 1, Incarnation: "inc"},
+		startup := protocol.Startup{
+			Registration: protocol.Registration{AddonID: "tables", Generation: 1, Incarnation: "inc"},
 			Credential:   "secret", Limits: contract.DefaultLimits(),
 		}
-		srv := httptest.NewServer(server.Handler(startup, r.t))
+		srv := httptest.NewServer(protocol.Handler(startup, r.t))
 		DeferCleanup(srv.Close)
 		post := func(path string, v any) (*http.Response, []byte) {
 			b, _ := json.Marshal(v)
@@ -255,9 +256,9 @@ var _ = Describe("rows-export outputs", func() {
 		var res contract.Result
 		Expect(json.Unmarshal(body, &res)).To(Succeed())
 		h := res.Outputs[0].Handle
-		resp, _ = post("/output", server.OutputRequest{Envelope: r.env("bob", "op-http", "output", "read", map[string]any{"tool": "rows-export", "table": "People"}), Handle: h})
+		resp, _ = post("/output", protocol.OutputRequest{Envelope: r.env("bob", "op-http", "output", "read", map[string]any{"tool": "rows-export", "table": "People"}), Handle: h})
 		Expect(resp.StatusCode).To(Equal(404))
-		resp, body = post("/output", server.OutputRequest{Envelope: r.env("alice", "op-http", "output", "read", map[string]any{"tool": "rows-export", "table": "People"}), Handle: h})
+		resp, body = post("/output", protocol.OutputRequest{Envelope: r.env("alice", "op-http", "output", "read", map[string]any{"tool": "rows-export", "table": "People"}), Handle: h})
 		Expect(resp.StatusCode).To(Equal(200))
 		Expect(int64(len(body))).To(Equal(res.Outputs[0].Size))
 	})

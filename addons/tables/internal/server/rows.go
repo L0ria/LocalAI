@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 
+	"github.com/mudler/LocalAI/addons/internal/protocol"
 	"github.com/mudler/LocalAI/addons/tables/internal/store"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
@@ -34,7 +35,7 @@ func parseRows(env contract.Envelope) (rowArgs, error) {
 	d := json.NewDecoder(bytes.NewReader(env.Request.Arguments))
 	d.DisallowUnknownFields()
 	if err := d.Decode(&a); err != nil || d.More() {
-		return a, ErrBadRequest
+		return a, protocol.ErrBadRequest
 	}
 	return a, nil
 }
@@ -49,7 +50,7 @@ func (a rowArgs) change(kind, resource string) store.RowChange {
 // schema action and a schema tool cannot run under a row action.
 func rowAuthority(env contract.Envelope, scope, action string) error {
 	if env.Request.Action != action || env.Authority.Scope != scope || env.Authority.Actor.UserID == "" {
-		return ErrForbidden
+		return protocol.ErrForbidden
 	}
 	return nil
 }
@@ -64,14 +65,14 @@ func (t *Tables) readRows(ctx context.Context, env contract.Envelope) (contract.
 	}
 	id := env.Request.ResourceID
 	if a.Tool != ToolRowsExport && a.MaxRows != 0 {
-		return contract.Result{}, ErrBadRequest
+		return contract.Result{}, protocol.ErrBadRequest
 	}
 	switch a.Tool {
 	case ToolRowsExport:
 		return t.exportRows(ctx, env, a)
 	case ToolRowsQuery:
 		if a.Aggregates != nil || a.GroupBy != "" || a.Rows != nil || a.Set != nil || a.IDs != nil {
-			return contract.Result{}, ErrBadRequest
+			return contract.Result{}, protocol.ErrBadRequest
 		}
 		p, err := t.Store.Query(ctx, id, store.Query{Table: a.Table, Columns: a.Columns, Filter: a.Filter, Sort: a.Sort, Limit: a.Limit, Cursor: a.Cursor})
 		if err != nil {
@@ -79,12 +80,12 @@ func (t *Tables) readRows(ctx context.Context, env contract.Envelope) (contract.
 		}
 		b, err := json.Marshal(p)
 		if err != nil {
-			return contract.Result{}, ErrBadRequest
+			return contract.Result{}, protocol.ErrBadRequest
 		}
 		return contract.Result{Payload: b}, nil
 	case ToolRowsAggregate:
 		if a.Columns != nil || a.Sort != nil || a.Cursor != "" || a.Rows != nil || a.Set != nil || a.IDs != nil {
-			return contract.Result{}, ErrBadRequest
+			return contract.Result{}, protocol.ErrBadRequest
 		}
 		r, err := t.Store.Aggregate(ctx, id, store.AggregateQuery{Table: a.Table, Filter: a.Filter, Aggregates: a.Aggregates, GroupBy: a.GroupBy, Limit: a.Limit})
 		if err != nil {
@@ -92,17 +93,17 @@ func (t *Tables) readRows(ctx context.Context, env contract.Envelope) (contract.
 		}
 		b, err := json.Marshal(r)
 		if err != nil {
-			return contract.Result{}, ErrBadRequest
+			return contract.Result{}, protocol.ErrBadRequest
 		}
 		return contract.Result{Payload: b}, nil
 	}
-	return contract.Result{}, ErrBadRequest
+	return contract.Result{}, protocol.ErrBadRequest
 }
 
 // rowMutationShape refuses fields a mutation does not use.
 func (a rowArgs) mutationShape() error {
 	if a.Columns != nil || a.Sort != nil || a.Limit != 0 || a.Cursor != "" || a.Aggregates != nil || a.GroupBy != "" || a.MaxRows != 0 {
-		return ErrBadRequest
+		return protocol.ErrBadRequest
 	}
 	return nil
 }
@@ -113,7 +114,7 @@ func (t *Tables) previewRows(ctx context.Context, env contract.Envelope, out con
 	}
 	a, err := parseRows(env)
 	if err != nil || a.mutationShape() != nil {
-		return out, ErrBadRequest
+		return out, protocol.ErrBadRequest
 	}
 	// A retried operation that already committed has nothing to preview; its
 	// receipt is the answer and apply replays it.
@@ -137,7 +138,7 @@ func (t *Tables) applyRows(ctx context.Context, env contract.Envelope, rev contr
 	}
 	a, err := parseRows(env)
 	if err != nil || a.mutationShape() != nil {
-		return contract.Receipt{}, ErrBadRequest
+		return contract.Receipt{}, protocol.ErrBadRequest
 	}
 	r, err := t.Store.ApplyRows(ctx, a.change(rowKinds[a.Tool], env.Request.ResourceID), rev, op)
 	var stale *store.StaleError
@@ -147,7 +148,7 @@ func (t *Tables) applyRows(ctx context.Context, env contract.Envelope, rev contr
 	case errors.As(err, &stale):
 		return reject(op, map[string]any{"error": "stale", "revision": stale.Current}), nil
 	case errors.Is(err, store.ErrConflict):
-		return contract.Receipt{}, ErrConflict
+		return contract.Receipt{}, protocol.ErrConflict
 	case errors.Is(err, store.ErrNotFound), errors.Is(err, store.ErrInvalidID), errors.Is(err, store.ErrInvalidOperation), errors.Is(err, store.ErrUnsafePath):
 		return contract.Receipt{}, mapErr(err)
 	case errors.Is(err, store.ErrRowConstraint), errors.Is(err, store.ErrInvalidRows), errors.Is(err, store.ErrInvalidQuery),

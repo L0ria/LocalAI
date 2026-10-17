@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/mudler/LocalAI/addons/internal/protocol"
 	"github.com/mudler/LocalAI/addons/tables/internal/store"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
@@ -102,7 +103,7 @@ func exportName(table string) string {
 
 func (t *Tables) exportRows(ctx context.Context, env contract.Envelope, a rowArgs) (contract.Result, error) {
 	if a.Aggregates != nil || a.GroupBy != "" || a.Rows != nil || a.Set != nil || a.IDs != nil || a.Cursor != "" || a.Limit != 0 || a.MaxRows < 0 {
-		return contract.Result{}, ErrBadRequest
+		return contract.Result{}, protocol.ErrBadRequest
 	}
 	if t.ExportDir == "" {
 		return contract.Result{}, errors.New("exports are not available")
@@ -185,11 +186,11 @@ func (t *Tables) openExport(env contract.Envelope, handle string) (io.ReadCloser
 	s := x.byID[handle]
 	x.mu.Unlock()
 	if s == nil || s.user != env.Authority.Actor.UserID || s.operation != env.Request.OperationID || s.resource != env.Request.ResourceID || env.Authority.Scope != "output" {
-		return nil, ErrNotFound
+		return nil, protocol.ErrNotFound
 	}
 	f, err := os.Open(s.path) // #nosec G703 -- the export directory is host configuration and file names are generated, never taken from a request
 	if err != nil {
-		return nil, ErrNotFound
+		return nil, protocol.ErrNotFound
 	}
 	return &stagedReader{f: f, t: t, handle: handle, size: s.size}, nil
 }

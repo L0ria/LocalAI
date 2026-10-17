@@ -8,6 +8,7 @@ import (
 	"io"
 	"time"
 
+	"github.com/mudler/LocalAI/addons/internal/protocol"
 	"github.com/mudler/LocalAI/addons/tables/internal/store"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
@@ -107,7 +108,7 @@ func parse(env contract.Envelope) (toolArgs, error) {
 	var a toolArgs
 	// Unknown argument fields are tolerated; the tool name is not optional.
 	if err := json.Unmarshal(env.Request.Arguments, &a); err != nil || a.Tool == "" {
-		return a, ErrBadRequest
+		return a, protocol.ErrBadRequest
 	}
 	return a, nil
 }
@@ -126,16 +127,16 @@ func mapErr(err error) error {
 	case errors.Is(err, store.ErrInvalidQuery), errors.Is(err, store.ErrInvalidRows), errors.Is(err, store.ErrRowConstraint),
 		errors.Is(err, store.ErrTooManyRows), errors.Is(err, store.ErrNoRows), errors.Is(err, store.ErrRowNotFound),
 		errors.Is(err, store.ErrStaleCursor), errors.Is(err, store.ErrArithmetic):
-		return ErrBadRequest
+		return protocol.ErrBadRequest
 	case errors.Is(err, store.ErrInvalidID), errors.Is(err, store.ErrInvalidName), errors.Is(err, store.ErrInvalidOperation),
 		errors.Is(err, store.ErrInvalidSchema), errors.Is(err, store.ErrSchemaLimit), errors.Is(err, store.ErrTableNotFound), errors.Is(err, store.ErrColumnNotFound):
-		return ErrBadRequest
+		return protocol.ErrBadRequest
 	case errors.Is(err, store.ErrSchemaExists):
-		return ErrConflict
+		return protocol.ErrConflict
 	case errors.Is(err, store.ErrNotFound):
-		return ErrNotFound
+		return protocol.ErrNotFound
 	case errors.Is(err, store.ErrExists), errors.Is(err, store.ErrConflict):
-		return ErrConflict
+		return protocol.ErrConflict
 	}
 	return err
 }
@@ -165,7 +166,7 @@ func (t *Tables) Read(ctx context.Context, env contract.Envelope) (contract.Resu
 		}
 		return contract.Result{Payload: payload(s)}, nil
 	}
-	return contract.Result{}, ErrBadRequest
+	return contract.Result{}, protocol.ErrBadRequest
 }
 
 func (t *Tables) Preview(ctx context.Context, env contract.Envelope) (contract.Preview, error) {
@@ -191,7 +192,7 @@ func (t *Tables) Preview(ctx context.Context, env contract.Envelope) (contract.P
 			// A retried creation finds its own database; anything else is a clash.
 			r, err := t.Store.Receipt(ctx, env.Request.OperationID)
 			if err != nil || r.State != contract.ReceiptCommitted {
-				return out, ErrConflict
+				return out, protocol.ErrConflict
 			}
 		}
 		out.Revision = contract.Revision{Schema: 1, Data: 0}
@@ -225,7 +226,7 @@ func (t *Tables) Preview(ctx context.Context, env contract.Envelope) (contract.P
 			out.Revision, out.Summary = p.Revision, p.Summary
 			return out, nil
 		}
-		return out, ErrBadRequest
+		return out, protocol.ErrBadRequest
 	}
 	if err := validateName(a.Name); err != nil {
 		return out, err
@@ -238,7 +239,7 @@ func (t *Tables) Preview(ctx context.Context, env contract.Envelope) (contract.P
 // with another action cannot remove a database.
 func deleteAuthority(env contract.Envelope, scope string) error {
 	if env.Request.Action != deleteAction || env.Authority.Scope != scope || env.Authority.Actor.UserID == "" {
-		return ErrForbidden
+		return protocol.ErrForbidden
 	}
 	return nil
 }
@@ -303,7 +304,7 @@ func (a toolArgs) change(kind, resource string) store.SchemaChange {
 // cannot change a schema through a row action.
 func schemaAuthority(env contract.Envelope, scope string) error {
 	if env.Request.Action != schemaAction || env.Authority.Scope != scope || env.Authority.Actor.UserID == "" {
-		return ErrForbidden
+		return protocol.ErrForbidden
 	}
 	return nil
 }
@@ -311,7 +312,7 @@ func schemaAuthority(env contract.Envelope, scope string) error {
 func validateName(n string) error {
 	// The store owns the rules; a dry call keeps one definition of "valid".
 	if _, err := store.CheckName(n); err != nil {
-		return ErrBadRequest
+		return protocol.ErrBadRequest
 	}
 	return nil
 }
@@ -379,7 +380,7 @@ func (t *Tables) Apply(ctx context.Context, env contract.Envelope, rev contract.
 		case errors.As(err, &stale):
 			return reject(op, map[string]any{"error": "stale", "revision": stale.Current}), nil
 		case errors.Is(err, store.ErrConflict):
-			return contract.Receipt{}, ErrConflict
+			return contract.Receipt{}, protocol.ErrConflict
 		case errors.Is(err, store.ErrNotFound), errors.Is(err, store.ErrInvalidID), errors.Is(err, store.ErrInvalidOperation), errors.Is(err, store.ErrUnsafePath):
 			return contract.Receipt{}, mapErr(err)
 		case errors.Is(err, store.ErrInvalidSchema), errors.Is(err, store.ErrSchemaLimit), errors.Is(err, store.ErrSchemaExists),
