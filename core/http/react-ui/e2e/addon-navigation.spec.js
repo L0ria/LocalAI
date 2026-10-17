@@ -103,7 +103,7 @@ test.describe('Add-on navigation', () => {
     expect(overflow).toBe(false)
   })
 
-  test('an administrator sees a stopped add-on as a tile with a Start action in the detail view', async ({ page }) => {
+  test("the server's admin block is what shows a Start action for a stopped add-on in the detail view", async ({ page }) => {
     await setup(page, { apps: [app({ id: 'notes', title: 'Notes', enabled: false, state: 'stopped', admin: { canStart: true, canStop: false, managementUrl: '/app/addons?manage=notes' } })] })
     await page.route('**/api/auth/status', route => route.fulfill({ json: sessionFor({ ...MEMBER, role: 'admin' }, { addons: true }) }))
     await page.goto('/app/addons?detail=notes')
@@ -116,13 +116,25 @@ test.describe('Add-on navigation', () => {
     const toggle = page.getByTestId('pin-toggle').first()
     await toggle.focus()
     const outline = await toggle.evaluate(el => getComputedStyle(el).outlineStyle)
-    expect(outline).not.toBe('none')
+    expect(outline).toBe('solid')
+    const width = await toggle.evaluate(el => parseFloat(getComputedStyle(el).outlineWidth))
+    expect(width).toBeGreaterThan(0)
     await expect(toggle).toHaveAccessibleName(/(Pin|Unpin) /)
   })
 
   test('a pin of an add-on that is no longer listed is not drawn and shows no error', async ({ page }) => {
     await setup(page, { pins: ['studio', 'removed-addon'] })
+    // Hold the Apps list back so the assertions run after it has arrived and
+    // been drawn from, not before, when a missing pin proves nothing.
+    await page.route(/\/api\/addons\/apps$/, async route => {
+      await new Promise(resolve => setTimeout(resolve, 4000))
+      await route.fulfill({ json: { apps: [] } })
+    })
+    const listed = page.waitForResponse(res => /\/api\/addons\/apps$/.test(res.url()))
     await page.goto('/app')
+    await listed
+    // Two frames: the list reaches React and the sidebar redraws from it.
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
     const pinned = page.getByTestId('pinned-nav')
     await expect(pinned.getByRole('link')).toHaveCount(1)
     await expect(page.getByRole('alert')).toHaveCount(0)
@@ -136,6 +148,7 @@ test.describe('Add-on navigation', () => {
     await expect(link).toHaveClass(/nav-item--muted/)
     await link.click()
     await expect(page).toHaveURL(/\/app\/addons\?detail=notes$/)
+    await expect(page.getByTestId('addon-detail')).toBeVisible()
   })
 })
 
