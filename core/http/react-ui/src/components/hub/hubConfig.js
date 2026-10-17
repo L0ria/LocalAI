@@ -105,13 +105,6 @@ export const buildHub = {
       icon: 'download',
       items: [{ path: '/app/import-model', labelKey: 'hub.import', adminOnly: true }],
     },
-    {
-      id: 'faces',
-      labelKey: 'items.faces',
-      descriptionKey: 'hub.descriptions.faces',
-      icon: 'smile',
-      items: [{ path: '/app/face', labelKey: 'items.faces', feature: 'face_recognition' }],
-    },
   ],
 }
 

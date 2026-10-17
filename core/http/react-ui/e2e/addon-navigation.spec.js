@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { ADMIN, MEMBER, app, sessionFor, mockAddons } from './addons-fixtures.js'
-import { clipFile, match, mockIdentity, people } from './identity-fixtures.js'
+import { FACE_MODEL, clipFile, faces, match, mockIdentity, people, photoFile } from './identity-fixtures.js'
 
 const STUDIO = { id: 'studio', kind: 'page', titleKey: 'items.studio', icon: 'palette', mainPath: '/app/studio' }
 const TALK = { id: 'talk', kind: 'page', titleKey: 'items.talk', icon: 'phone', mainPath: '/app/talk' }
@@ -294,7 +294,7 @@ test.describe('Add-on navigation: the Voice recognition page', () => {
     await page.goto('/app/build')
     await expect(page.locator('.dk-hubtabs')).toBeVisible()
     await expect(page.locator('.dk-hubtabs [data-hub-tab="voices"]')).toHaveCount(0)
-    await expect(page.locator('.dk-hubtabs [data-hub-tab="faces"]')).toBeVisible()
+    await expect(page.locator('.dk-hubtabs [data-hub-tab="faces"]')).toHaveCount(0)
   })
 
   test('the add-on page identifies, enrols from a side panel and holds a removal behind Undo', async ({ page }) => {
@@ -334,5 +334,139 @@ test.describe('Add-on navigation: the Voice recognition page', () => {
     await page.waitForTimeout(300)
     expect(calls.forget).toHaveLength(0)
     await expect(page.getByTestId('known-list')).toContainText('Jonas Weber')
+  })
+})
+
+// The built Face module, served the same way. dist/ is not committed, so the
+// spec builds it once per run with the builder of the add-on.
+const FACE_DIST = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../addons/face/ui/dist')
+const FACE_BASE = `/api/addons/face/assets/${'e'.repeat(64)}`
+
+test.beforeAll(async () => {
+  const { build } = await import('../../../../addons/face/ui/build.mjs')
+  await build()
+})
+
+const faceApp = () => app({
+  id: 'face', name: 'face', title: 'Face', icon: undefined, generation: 1, version: '0.1.0', mainPage: '/app/addons/face/recognition',
+  ui: { entry: `${FACE_BASE}/ui/face.js`, css: [`${FACE_BASE}/ui/face.css`], sdk: { min: 2, max: 2 }, pages: ['recognition'], navigation: [], chatActions: [] },
+})
+
+async function serveFace(page) {
+  await page.route(/\/api\/addons\/face\/assets\//, route => {
+    const file = new URL(route.request().url()).pathname.split('/').slice(6).join('/')
+    const known = { 'ui/face.js': 'text/javascript', 'ui/face.css': 'text/css' }
+    if (!known[file]) return route.fulfill({ status: 403, json: { error: { type: 'addon_error', message: 'Addon request denied' } } })
+    return route.fulfill({ status: 200, contentType: known[file], headers: { 'cache-control': 'no-store' }, body: fs.readFileSync(path.join(FACE_DIST, file)) })
+  })
+}
+
+async function asFaceAdmin(page, features = {}) {
+  await page.route('**/api/auth/status', route => route.fulfill({ json: sessionFor(ADMIN, { addons: true, face_recognition: true, ...features }) }))
+}
+
+async function expectFacesPage(page) {
+  await expect(page.getByTestId('faces-page')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Faces', level: 1 })).toBeVisible()
+}
+
+test.describe('Add-on navigation: the Face recognition page', () => {
+  test('the Face add-on draws the same page and test ids as the core page', async ({ page }) => {
+    await setup(page, { apps: [faceApp()] })
+    await asFaceAdmin(page)
+    await serveFace(page)
+    await mockIdentity(page)
+    await page.goto('/app/addons/face/recognition')
+    await expectFacesPage(page)
+    await expect(page.locator('[data-testid="addon-surface"][data-addon="face"]')).toBeVisible()
+    await expect(page.getByTestId('known-empty')).toContainText('Nobody enrolled in this browser yet')
+  })
+
+  test('the core page, with the add-on absent, shows the same test id and title', async ({ page }) => {
+    await setup(page, { apps: [] })
+    await asFaceAdmin(page)
+    await mockIdentity(page)
+    await page.goto('/app/face')
+    await expect(page).toHaveURL(/\/app\/face$/)
+    await expectFacesPage(page)
+  })
+
+  test('an old model link ends in the add-on with the model in the query', async ({ page }) => {
+    await setup(page, { apps: [faceApp()] })
+    await asFaceAdmin(page)
+    await serveFace(page)
+    await mockIdentity(page)
+    await page.goto('/app/face/org%2Fname')
+    await expect(page).toHaveURL(/\/app\/addons\/face\/recognition\?model=org%2Fname$/)
+    await expect(page.getByTestId('faces-page')).toBeVisible()
+  })
+
+  test('a viewer without face_recognition gets the off notice in the add-on', async ({ page }) => {
+    await setup(page, { apps: [faceApp()] })
+    // An administrator holds every feature, so the viewer is a member.
+    await page.route('**/api/auth/status', route => route.fulfill({ json: sessionFor(MEMBER, { addons: true, face_recognition: false }) }))
+    await serveFace(page)
+    await page.goto('/app/addons/face/recognition')
+    await expect(page.getByTestId('face-off')).toBeVisible()
+    await expect(page.getByTestId('faces-page')).toHaveCount(0)
+  })
+
+  test('the Build hub shows no Faces tab', async ({ page }) => {
+    await setup(page, { apps: [] })
+    await asFaceAdmin(page)
+    await page.goto('/app/build')
+    await expect(page.locator('.dk-hubtabs')).toBeVisible()
+    await expect(page.locator('.dk-hubtabs [data-hub-tab="faces"]')).toHaveCount(0)
+  })
+
+  test('the add-on page identifies, enrols from a side panel and holds a removal behind Undo', async ({ page }) => {
+    await setup(page, { apps: [faceApp()] })
+    await asFaceAdmin(page)
+    await serveFace(page)
+    const calls = await mockIdentity(page, { storedFaces: faces, faceIdentify: { matches: [match('f-anna', 'Anna Kowalski', 0.21), match('f-tomas', 'Tomas Ribeiro', 0.52)] } })
+    await page.goto('/app/addons/face/recognition')
+    await expect(page.getByTestId('faces-page')).toBeVisible()
+
+    await page.locator('#face-probe-image-file').setInputFiles(photoFile())
+    await page.getByTestId('identify-go').click()
+    await expect(page.getByTestId('verdict')).toContainText('Probably Anna Kowalski')
+    expect(calls.faceIdentify).toHaveLength(1)
+    expect(calls.faceIdentify[0].model).toBe(FACE_MODEL)
+    expect(calls.faceIdentify[0].img).toMatch(/^data:image\//)
+
+    await page.getByTestId('enrol-open').click()
+    const sheet = page.getByTestId('enrol-sheet')
+    await expect(sheet).toBeVisible()
+    await sheet.locator('#face-enrol-image-file').setInputFiles(photoFile('new.png'))
+    await sheet.locator('#face-enrol-name').fill('Ada Byron')
+    await sheet.getByLabel(/This person agreed/).check()
+    await sheet.getByRole('button', { name: /^Enrol/ }).click()
+    await expect.poll(() => calls.faceRegister.length).toBe(1)
+    expect(calls.faceRegister[0]).toMatchObject({ model: FACE_MODEL, name: 'Ada Byron' })
+    await expect(sheet).toHaveCount(0)
+    await expect(page.getByTestId('known-list')).toContainText('Ada Byron')
+
+    await page.clock.install()
+    await page.getByRole('button', { name: 'Remove Anna Kowalski' }).click()
+    await expect(page.locator('.vc-undo').filter({ hasText: 'Anna Kowalski' })).toBeVisible()
+    await page.getByRole('button', { name: 'Undo' }).first().click()
+    // Past the 10 second delay: a cancelled removal must send nothing.
+    await page.clock.fastForward(15000)
+    await page.waitForTimeout(300)
+    expect(calls.forget).toHaveLength(0)
+    await expect(page.getByTestId('known-list')).toContainText('Anna Kowalski')
+  })
+
+  test('with the removal left to run, the add-on sends the face forget call', async ({ page }) => {
+    await setup(page, { apps: [faceApp()] })
+    await asFaceAdmin(page)
+    await serveFace(page)
+    await page.clock.install()
+    const calls = await mockIdentity(page, { storedFaces: faces })
+    await page.goto('/app/addons/face/recognition')
+    await page.getByRole('button', { name: 'Remove Anna Kowalski' }).click()
+    await page.clock.runFor(11000)
+    await expect.poll(() => calls.forget.length).toBe(1)
+    expect(calls.forget[0]).toMatchObject({ face: true, id: 'f-anna' })
   })
 })

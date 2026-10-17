@@ -35,6 +35,7 @@ export const MIGRATION_ROUTES = Object.freeze([
   { from: '/app/sound', to: '/app/studio/sound', kind: 'studio-tab' },
   { from: '/app/diarization', to: '/app/studio/diarization', kind: 'studio-tab' },
   { from: '/app/transform', to: '/app/studio/transform', kind: 'studio-tab' },
+  { from: '/app/face', to: '/app/addons/face/recognition', kind: 'addon-page' },
   { from: '/app/voice', to: '/app/addons/voice/recognition', kind: 'addon-page' },
   { from: '/app/voice-library', to: '/app/addons/voice/library', kind: 'addon-page' },
   { from: '/app/voice-library/new', to: '/app/addons/voice/create', kind: 'addon-page' },

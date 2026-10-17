@@ -58,3 +58,17 @@ test('a moved route with a :model segment carries the model as ?model=, not in t
   assert.ok(router.includes('withModel'), 'the model routes must use withModel')
   assert.ok(!/\/app\/addons\/\$\{addon\}\/\$\{page\}\/\$\{model\}/.test(router), 'the model must not be appended to the path')
 })
+
+test('the face route and the face model route both open the Face add-on, the model as ?model=', () => {
+  assert.ok(MIGRATION_ROUTES.some(r => r.from === '/app/face' && r.to === '/app/addons/face/recognition' && r.kind === 'addon-page'))
+  const lines = router.split('\n')
+  const plain = lines.find(l => l.includes("{ path: 'face', element:"))
+  const withModel = lines.find(l => l.includes("{ path: 'face/:model', element:"))
+  assert.ok(plain?.includes('<MovedPage addon="face" page="recognition">'), 'face is not wrapped')
+  assert.ok(withModel?.includes('<MovedPage addon="face" page="recognition" withModel>'), 'face/:model is not wrapped with withModel')
+})
+
+test('the Build hub has no Faces tab', async () => {
+  const { buildHub } = await import('../../src/components/hub/hubConfig.js')
+  assert.ok(!buildHub.tabs.some(t => t.id === 'faces' || t.id === 'voices'))
+})

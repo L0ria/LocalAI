@@ -33,7 +33,6 @@ test.describe('Hub tabs: the right tab for each route', () => {
     ['/app/fine-tune', 'fine-tune'],
     ['/app/quantize', 'quantize'],
     ['/app/import-model', 'import'],
-    ['/app/face', 'faces'],
   ]
   for (const [path, id] of build) {
     test(`Build: ${path} highlights ${id}`, async ({ page }) => {
@@ -196,12 +195,12 @@ test.describe('Hub tabs: phone', () => {
 
   test('scrolling reaches the last tab and keeps it tappable', async ({ page }) => {
     await page.goto('/app/build')
-    const last = tab(page, 'faces')
+    const last = tab(page, 'import')
     await last.scrollIntoViewIfNeeded()
     await expect(last).toBeInViewport()
     await last.click()
-    await expect(page).toHaveURL(/\/app\/face$/)
-    await expect(tab(page, 'faces')).toHaveAttribute('aria-current', 'page')
+    await expect(page).toHaveURL(/\/app\/import-model$/)
+    await expect(tab(page, 'import')).toHaveAttribute('aria-current', 'page')
   })
 
   test('every tab is at least 36px tall', async ({ page }) => {

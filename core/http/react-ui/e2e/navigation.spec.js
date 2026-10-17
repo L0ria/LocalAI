@@ -61,11 +61,11 @@ test.describe('Navigation', () => {
     await page.goto('/app/agents')
     const bar = page.locator('.dk-hubtabs')
     await expect(bar).toBeVisible()
-    for (const id of ['overview', 'agents', 'skills', 'memory', 'jobs', 'fine-tune', 'quantize', 'import', 'faces']) {
+    for (const id of ['overview', 'agents', 'skills', 'memory', 'jobs', 'fine-tune', 'quantize', 'import']) {
       await expect(bar.locator(`[data-hub-tab="${id}"]`)).toBeVisible()
     }
     await expect(bar.locator('a[href="/app/fine-tune"]')).toBeVisible()
-    await expect(bar.locator('a[href="/app/face"]')).toBeVisible()
+    await expect(bar.locator('[data-hub-tab="faces"]')).toHaveCount(0)
     await expect(bar.locator('[data-hub-tab="agents"]')).toHaveAttribute('aria-current', 'page')
   })
 
