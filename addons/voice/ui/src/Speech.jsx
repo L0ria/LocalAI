@@ -10,7 +10,7 @@ export function createSpeech(ctx) {
     const [model, setModel] = useState(ctx.modelFrom(path))
     const [models, setModels] = useState({ status: 'loading', list: [] })
     const [profiles, setProfiles] = useState([])
-    const [voiceId, setVoiceId] = useState('')
+    const [voiceId, setVoiceId] = useState(ctx.useSearch().get('voice') || '')
     const [manualVoice, setManualVoice] = useState('')
     const [text, setText] = useState('')
     const [instructions, setInstructions] = useState('')

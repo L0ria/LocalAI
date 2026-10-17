@@ -46,3 +46,15 @@ test('Studio has a route that carries a model', () => {
 test('the same-path routes need no redirect', () => {
   for (const r of MIGRATION_ROUTES.filter(x => x.kind === 'same')) assert.equal(r.from, r.to)
 })
+
+test('moved biometric routes are wrapped in MovedPage in the router', () => {
+  for (const r of MIGRATION_ROUTES.filter(x => x.kind === 'addon-page')) {
+    const [, , , addon, page] = r.to.split('/')
+    assert.ok(router.includes(`<MovedPage addon="${addon}" page="${page}">`) || router.includes(`<MovedPage addon="${addon}" page="${page}" withModel>`), `router.jsx does not wrap ${r.from}`)
+  }
+})
+
+test('a moved route with a :model segment carries the model as ?model=, not in the path', () => {
+  assert.ok(router.includes('withModel'), 'the model routes must use withModel')
+  assert.ok(!/\/app\/addons\/\$\{addon\}\/\$\{page\}\/\$\{model\}/.test(router), 'the model must not be appended to the path')
+})

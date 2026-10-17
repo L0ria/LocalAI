@@ -1,6 +1,8 @@
-import { lazy } from 'react'
+import { lazy, useEffect } from 'react'
 import { createBrowserRouter, Navigate, Outlet, useLocation, useOutletContext, useParams } from 'react-router-dom'
 import { routerBasename } from './utils/basePath'
+import { useAddonRegistry } from './addons/useAddonRegistry'
+import { appStatus } from './addons/registryState'
 import App from './App'
 import RequireAdmin from './components/RequireAdmin'
 import RequireAuth from './components/RequireAuth'
@@ -195,6 +197,27 @@ function BrowseRedirect() {
 }
 
 
+// A moved biometric page opens in its add-on while the add-on is usable and in
+// the core page otherwise, so a user who has not installed the add-on loses
+// nothing. withModel carries the :model segment of the old route to the
+// add-on as ?model=<id>: an add-on path segment refuses "/", ":" and "%" and
+// long ids (resolveSubpath), so a model id cannot travel in the path.
+function MovedPage({ addon, page, withModel, children }) {
+  const { apps, acquire, allowed } = useAddonRegistry()
+  const { search, hash } = useLocation()
+  const { model } = useParams()
+  // The list is read only for a user the server lets see add-ons.
+  useEffect(() => (allowed ? acquire() : undefined), [acquire, allowed])
+  const app = apps.find(a => a.id === addon)
+  if (appStatus(app) === 'ready' && app.ui.pages.includes(page)) {
+    const params = new URLSearchParams(search)
+    if (withModel && model) params.set('model', model)
+    const query = params.toString()
+    return <Navigate to={`/app/addons/${addon}/${page}${query ? `?${query}` : ''}${hash}`} replace />
+  }
+  return children
+}
+
 function Admin({ children }) {
   return <RequireAdmin>{children}</RequireAdmin>
 }
@@ -282,7 +305,7 @@ const appChildren = [
       { path: 'face/:model', element: <Feature feature="face_recognition" disabled={<FeatureOff feature="face" />}><FaceRecognition /></Feature> },
       { path: 'voice', element: <Feature feature="voice_recognition" disabled={<FeatureOff feature="voice" />}><VoiceRecognition /></Feature> },
       { path: 'voice/:model', element: <Feature feature="voice_recognition" disabled={<FeatureOff feature="voice" />}><VoiceRecognition /></Feature> },
-      { path: 'voice-library', element: <Admin><VoiceRecognition tab="speech" /></Admin> },
+      { path: 'voice-library', element: <Admin><MovedPage addon="voice" page="library"><VoiceRecognition tab="speech" /></MovedPage></Admin> },
       { path: 'import-model', element: <Admin><ImportModel /></Admin> },
     ],
   },
@@ -337,7 +360,7 @@ const appChildren = [
     children: [{ path: ':id', element: <ModelPage /> }],
   },
   { path: 'manage', element: <Admin><ManageRedirect /></Admin> },
-  { path: 'voice-library/new', element: <Admin><VoiceProfileCreate /></Admin> },
+  { path: 'voice-library/new', element: <Admin><MovedPage addon="voice" page="create"><VoiceProfileCreate /></MovedPage></Admin> },
   { path: 'model-editor', element: <Admin><ModelEditor /></Admin> },
   { path: 'model-editor/:name', element: <Admin><ModelEditor /></Admin> },
   { path: '*', element: <NotFound /> },

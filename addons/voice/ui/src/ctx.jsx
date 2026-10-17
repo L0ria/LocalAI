@@ -33,6 +33,16 @@ export function createContext(sdk) {
 
   const toast = (message, kind = 'info') => (sdk.notify[kind] || sdk.notify.info)(message)
 
+  // The path prefix LocalAI is served under, read the way the host reads it
+  // (utils/basePath.js: the <base href> element). document.baseURI would be the
+  // address of the current page when there is no such element.
+  const basePath = (() => {
+    if (typeof document === 'undefined') return ''
+    const el = document.querySelector('base[href]')
+    if (!el) return ''
+    try { return new URL(el.getAttribute('href')).pathname.replace(/\/+$/, '') } catch { return '' }
+  })()
+
   const json = async (path, init) => {
     const response = await sdk.core.fetch(path, init)
     if (!response.ok) {
@@ -50,7 +60,7 @@ export function createContext(sdk) {
 
   return {
     sdk, React, h, Fragment, t, list, Icon: sdk.Icon, ui: sdk.ui, hooks: sdk.hooks, viewer: sdk.viewer, core: sdk.core,
-    Link, useSearch, modelFrom, toast, json, UndoBar,
+    Link, useSearch, modelFrom, toast, json, UndoBar, basePath,
     openPanel: (title, render) => sdk.layers.openPanel({ title, render }),
     markDirty: (flag) => sdk.markDirty(flag),
   }
