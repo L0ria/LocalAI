@@ -218,7 +218,7 @@ test.describe('Add-on UI runtime', () => {
       // metadata of its own: say what the browser would have said.
       const response = await route.fetch({ headers: { ...route.request().headers(), 'sec-fetch-site': 'same-origin' } })
       const body = await response.json()
-      for (const a of body.apps) if (a.id === 'uifixture') a.ui.sdk = { min: 2, max: 3 }
+      for (const a of body.apps) if (a.id === 'uifixture') a.ui.sdk = { min: 3, max: 3 }
       await route.fulfill({ response, json: body })
     })
     const assets = []
