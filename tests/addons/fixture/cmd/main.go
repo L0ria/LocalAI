@@ -51,6 +51,9 @@ func main() {
 	if startup.DataDir != "" {
 		_ = os.WriteFile(filepath.Join(startup.DataDir, "fixture.probe"), []byte("ok"), 0600)
 	}
+	// The host operation endpoint and credential, as received, so a test can
+	// assert that an add-on the host does not name gets neither.
+	_ = os.WriteFile("fixture.hostops", []byte(startup.HostEndpoint+"\n"+startup.HostCredential), 0600)
 	if config.Mode == "exit-start" {
 		os.Exit(4)
 	}

@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -20,6 +21,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/mudler/LocalAI/core/services/addons/hostops"
 	"github.com/mudler/LocalAI/core/services/addons/packages"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
@@ -66,7 +68,28 @@ type Config struct {
 	DataRoot                   string
 	Limits                     contract.Limits
 	ReadyTimeout, StableHealth time.Duration
+	// HostOps, when set, gives each add-on that its Allowed map names a
+	// host operation endpoint. Nil means no add-on gets one.
+	HostOps *HostOps
 }
+
+// HostOps wires the host operation channel into the supervisor. Allowed maps
+// an add-on ID to the operation prefixes it may call; an add-on that is not a
+// key gets no endpoint and no credential. InFlight records the envelope of
+// each request while the add-on serves it.
+type HostOps struct {
+	Broker   *hostops.Broker
+	InFlight *hostops.InFlight
+	Allowed  map[string][]string
+}
+
+func (h *HostOps) prefixes(id string) []string {
+	if h == nil || h.Broker == nil || h.InFlight == nil {
+		return nil
+	}
+	return h.Allowed[id]
+}
+
 type Registration struct {
 	AddonID      string                `json:"addonId"`
 	Generation   uint64                `json:"generation"`
@@ -86,6 +109,11 @@ type Startup struct {
 	// DataDir is the addon's private mutable data directory, an absolute path
 	// the owner created. The package directory is immutable and never holds data.
 	DataDir string `json:"dataDir,omitempty"`
+	// HostEndpoint and HostCredential give an add-on that the host setting
+	// names a loopback endpoint for host operations, with a credential of its
+	// own. Both are absent for every other add-on.
+	HostEndpoint   string `json:"hostEndpoint,omitempty"`
+	HostCredential string `json:"hostCredential,omitempty"`
 }
 type Instance struct {
 	PID         int
@@ -280,6 +308,29 @@ func (s *Supervisor) launch(ctx context.Context, pkg packages.PackageReceipt, ge
 		return nil, ErrRuntime
 	}
 	defer func() { _ = socket.Close() }()
+	// The host operation endpoint belongs to the incarnation: only an add-on
+	// that the host setting names gets one. The listener is closed on every
+	// failed launch, and by serveHostOps when the process ends.
+	var hostListener net.Listener
+	var hostCredential string
+	hostPrefixes := s.config.HostOps.prefixes(pkg.Manifest.ID)
+	hostReady := false
+	if len(hostPrefixes) > 0 {
+		hostListener, e = net.ListenTCP("tcp4", &net.TCPAddr{IP: net.IPv4(127, 0, 0, 1)})
+		if e != nil {
+			return nil, ErrRuntime
+		}
+		defer func() {
+			if !hostReady {
+				_ = hostListener.Close()
+			}
+		}()
+		hc := make([]byte, 32)
+		if _, e = rand.Read(hc); e != nil {
+			return nil, ErrRuntime
+		}
+		hostCredential = hex.EncodeToString(hc)
+	}
 	child, parent, e := os.Pipe()
 	if e != nil {
 		return nil, ErrRuntime
@@ -335,6 +386,14 @@ func (s *Supervisor) launch(ctx context.Context, pkg packages.PackageReceipt, ge
 		return nil, e
 	}
 	p.client = c
+	if hostListener != nil {
+		if hostCredential == c.credential {
+			s.terminate(p)
+			return nil, ErrRuntime
+		}
+		c.inflight = s.config.HostOps.InFlight
+		s.serveHostOps(p, hostListener, pkg.Manifest.ID, hostCredential, hostPrefixes)
+	}
 	ident, identityErr := identity(cmd.Process.Pid)
 	ident.Incarnation = r.Incarnation
 	if identityErr == nil {
@@ -354,7 +413,11 @@ func (s *Supervisor) launch(ctx context.Context, pkg packages.PackageReceipt, ge
 	// The startup object is bounded; write with a deadline so even a child that
 	// never reads its inherited pipe cannot hang the owner.
 	_ = parent.SetWriteDeadline(time.Now().Add(s.config.ReadyTimeout))
-	e = json.NewEncoder(parent).Encode(Startup{Registration: r, Credential: c.credential, Limits: s.config.Limits, DataDir: dataDir})
+	startupObject := Startup{Registration: r, Credential: c.credential, Limits: s.config.Limits, DataDir: dataDir}
+	if hostListener != nil {
+		startupObject.HostEndpoint, startupObject.HostCredential = "http://"+hostListener.Addr().String(), hostCredential
+	}
+	e = json.NewEncoder(parent).Encode(startupObject)
 	if e != nil {
 		s.terminate(p)
 		return nil, ErrRuntime
@@ -373,6 +436,7 @@ func (s *Supervisor) launch(ctx context.Context, pkg packages.PackageReceipt, ge
 			c.accept = true
 			c.mu.Unlock()
 			p.readyAt = time.Now()
+			hostReady = true
 			return p, nil
 		}
 		select {
@@ -386,6 +450,16 @@ func (s *Supervisor) launch(ctx context.Context, pkg packages.PackageReceipt, ge
 		}
 	}
 }
+
+// serveHostOps serves the host operation channel of one incarnation and
+// closes it when the process ends. terminate waits for the process, so the
+// endpoint never outlives it.
+func (s *Supervisor) serveHostOps(p *process, l net.Listener, id, credential string, prefixes []string) {
+	srv := &http.Server{Handler: s.config.HostOps.Broker.Handler(id, credential, prefixes), ReadHeaderTimeout: 5 * time.Second, MaxHeaderBytes: 16 << 10}
+	go func() { _ = srv.Serve(l) }()
+	go func() { <-p.done; _ = srv.Close() }()
+}
+
 func (s *Supervisor) terminate(p *process) {
 	p.client.withdraw()
 	_ = p.parent.Close()

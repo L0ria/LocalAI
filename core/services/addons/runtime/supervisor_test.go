@@ -7,6 +7,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -19,6 +21,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/mudler/LocalAI/core/services/addons/hostops"
 	"github.com/mudler/LocalAI/core/services/addons/packages"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	. "github.com/onsi/ginkgo/v2"
@@ -616,5 +619,91 @@ var _ = Describe("Addon data directory", func() {
 		Expect(e).To(HaveOccurred())
 		entries, _ := os.ReadDir(root)
 		Expect(entries).To(BeEmpty())
+	})
+	hostOpsSeen := func(p packages.PackageReceipt) (endpoint, credential string) {
+		var b []byte
+		Eventually(func() error {
+			var e error
+			b, e = os.ReadFile(filepath.Join(p.Directory, "fixture.hostops"))
+			return e
+		}, 2*time.Second).Should(Succeed())
+		parts := strings.SplitN(string(b), "\n", 2)
+		return parts[0], parts[1]
+	}
+	hostOpsSupervisor := func(allowed map[string][]string) (*Supervisor, *hostops.InFlight) {
+		l := contract.DefaultLimits()
+		l.ReadTimeout = 300 * time.Millisecond
+		l.ShutdownTimeout = 100 * time.Millisecond
+		in := hostops.NewInFlight()
+		b := hostops.New(in, func(string, string) bool { return true }, l)
+		Expect(b.Register(hostops.Spec{Op: "finetune.get", Scope: "read", Feature: "fine_tuning", Handler: func(context.Context, hostops.Call) (json.RawMessage, error) {
+			return json.RawMessage(`{"ok":true}`), nil
+		}})).To(Succeed())
+		s, e := NewSupervisor(Config{StateRoot: GinkgoT().TempDir(), Limits: l, ReadyTimeout: 2 * time.Second, StableHealth: time.Second, HostOps: &HostOps{Broker: b, InFlight: in, Allowed: allowed}})
+		Expect(e).NotTo(HaveOccurred())
+		DeferCleanup(func() { Expect(s.Close(context.Background())).To(Succeed()) })
+		return s, in
+	}
+
+	It("gives an add-on that the host setting names a host endpoint of its own", func() {
+		s, in := hostOpsSupervisor(map[string][]string{"sample": {"finetune."}})
+		p := withID("sample")
+		inst, e := s.Start(context.Background(), p, 1)
+		Expect(e).NotTo(HaveOccurred())
+		endpoint, credential := hostOpsSeen(p)
+		Expect(endpoint).To(HavePrefix("http://127.0.0.1:"))
+		Expect(credential).To(HaveLen(64))
+		// Not the credential of the host-to-add-on channel.
+		Expect(credential).NotTo(Equal(inst.Client.(*Client).credential))
+		Expect(endpoint).NotTo(Equal(inst.Client.(*Client).registration.Endpoint))
+		// The endpoint answers, and a call needs the live envelope the client records.
+		call := func(cred string) int {
+			body := strings.NewReader(`{"operationId":"op1","op":"finetune.get","arguments":{}}`)
+			req, _ := http.NewRequest("POST", endpoint+"/host", body)
+			req.Header.Set(contract.HostCredentialHeader, cred)
+			resp, e := http.DefaultClient.Do(req)
+			Expect(e).NotTo(HaveOccurred())
+			_ = resp.Body.Close()
+			return resp.StatusCode
+		}
+		Expect(call("wrong")).To(Equal(http.StatusUnauthorized))
+		Expect(call(credential)).To(Equal(http.StatusForbidden))
+		end := in.Begin(contract.Envelope{Request: contract.Request{AddonID: "sample", OperationID: "op1", Generation: 1, Action: "a", Arguments: json.RawMessage(`{}`)}, Authority: contract.Authority{Actor: contract.Actor{UserID: "u", CredentialID: "c", Mode: "named-user"}, Scope: "read", ExpiresAt: time.Now().Add(time.Minute)}})
+		Expect(call(credential)).To(Equal(http.StatusOK))
+		end()
+		Expect(call(credential)).To(Equal(http.StatusForbidden))
+	})
+
+	It("gives an add-on that the host setting does not name no host endpoint", func() {
+		s, _ := hostOpsSupervisor(map[string][]string{"other": {"finetune."}})
+		p := withID("sample")
+		_, e := s.Start(context.Background(), p, 1)
+		Expect(e).NotTo(HaveOccurred())
+		endpoint, credential := hostOpsSeen(p)
+		Expect(endpoint).To(BeEmpty())
+		Expect(credential).To(BeEmpty())
+		// No setting at all is the same.
+		plain := supervisor()
+		q := withID("second")
+		_, e = plain.Start(context.Background(), q, 1)
+		Expect(e).NotTo(HaveOccurred())
+		endpoint, credential = hostOpsSeen(q)
+		Expect(endpoint + credential).To(BeEmpty())
+	})
+
+	It("closes the host endpoint when the incarnation ends", func() {
+		s, _ := hostOpsSupervisor(map[string][]string{"sample": {"finetune."}})
+		p := withID("sample")
+		inst, e := s.Start(context.Background(), p, 1)
+		Expect(e).NotTo(HaveOccurred())
+		endpoint, _ := hostOpsSeen(p)
+		Expect(s.Stop(context.Background(), inst)).To(Succeed())
+		Eventually(func() error {
+			c, e := net.DialTimeout("tcp", strings.TrimPrefix(endpoint, "http://"), 200*time.Millisecond)
+			if e == nil {
+				_ = c.Close()
+			}
+			return e
+		}, 2*time.Second).Should(HaveOccurred())
 	})
 })

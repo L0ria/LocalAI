@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"github.com/mudler/LocalAI/core/services/addons/hostops"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	"github.com/mudler/LocalAI/pkg/httpclient"
 	"io"
@@ -29,6 +30,9 @@ type Client struct {
 	registration         Registration
 	limits               contract.Limits
 	http                 *http.Client
+	// inflight, when set, records the envelope of each call while it runs, so
+	// a host operation of this add-on can find the request it belongs to.
+	inflight *hostops.InFlight
 }
 
 var _ contract.Runtime = (*Client)(nil)
@@ -166,12 +170,22 @@ func (c *Client) health(ctx context.Context, r Registration) error {
 	}
 	return nil
 }
-func (c *Client) call(ctx context.Context, path string, in, out any, timeout time.Duration) error {
+
+// begin records the envelope of a call for the host operation channel. The
+// returned function ends the record.
+func (c *Client) begin(env *contract.Envelope) func() {
+	if c.inflight == nil || env == nil {
+		return func() {}
+	}
+	return c.inflight.Begin(*env)
+}
+func (c *Client) call(ctx context.Context, path string, env *contract.Envelope, in, out any, timeout time.Duration) error {
 	done, e := c.admit()
 	if e != nil {
 		return e
 	}
 	defer done()
+	defer c.begin(env)()
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	resp, e := c.send(ctx, path, in)
@@ -186,7 +200,7 @@ func (c *Client) Read(ctx context.Context, v contract.Envelope) (contract.Result
 	if e := c.valid(v, "read"); e != nil {
 		return r, e
 	}
-	e := c.call(ctx, "/read", v, &r, c.limits.ReadTimeout)
+	e := c.call(ctx, "/read", &v, v, &r, c.limits.ReadTimeout)
 	if e == nil {
 		e = r.Validate(c.limits)
 	}
@@ -197,7 +211,7 @@ func (c *Client) Preview(ctx context.Context, v contract.Envelope) (contract.Pre
 	if e := c.valid(v, "preview"); e != nil {
 		return r, e
 	}
-	e := c.call(ctx, "/preview", v, &r, c.limits.PreviewTimeout)
+	e := c.call(ctx, "/preview", &v, v, &r, c.limits.PreviewTimeout)
 	if e == nil {
 		e = r.Validate(time.Now(), c.limits)
 		if r.OperationID != v.Request.OperationID {
@@ -227,7 +241,7 @@ func (c *Client) Apply(ctx context.Context, v contract.Envelope, revision contra
 	if revision.Schema == 0 {
 		return r, ErrNotSent
 	}
-	e := c.call(ctx, "/apply", ApplyRequest{v, revision}, &r, c.limits.ApplyTimeout)
+	e := c.call(ctx, "/apply", &v, ApplyRequest{v, revision}, &r, c.limits.ApplyTimeout)
 	if e == nil {
 		e = r.Validate(c.limits)
 		if r.OperationID != v.Request.OperationID {
@@ -241,7 +255,7 @@ func (c *Client) Receipt(ctx context.Context, id string) (contract.Receipt, erro
 	if (contract.Receipt{OperationID: id, State: contract.ReceiptUnknown}).Validate(c.limits) != nil {
 		return r, ErrRuntime
 	}
-	e := c.call(ctx, "/receipt", ReceiptRequest{id}, &r, c.limits.ReadTimeout)
+	e := c.call(ctx, "/receipt", nil, ReceiptRequest{id}, &r, c.limits.ReadTimeout)
 	if e == nil {
 		e = r.Validate(c.limits)
 		if r.OperationID != id {
@@ -257,10 +271,13 @@ func (c *Client) OpenOutput(ctx context.Context, v contract.Envelope, handle str
 	if (contract.Receipt{OperationID: handle, State: contract.ReceiptUnknown}).Validate(c.limits) != nil {
 		return nil, ErrRuntime
 	}
-	done, e := c.admit()
+	admitted, e := c.admit()
 	if e != nil {
 		return nil, e
 	}
+	// The record lasts as long as the stream, like the admission slot.
+	end := c.begin(&v)
+	done := func() { end(); admitted() }
 	ctx, cancel := context.WithTimeout(ctx, c.limits.ReadTimeout)
 	resp, e := c.send(ctx, "/output", OutputRequest{v, handle})
 	if e != nil {
