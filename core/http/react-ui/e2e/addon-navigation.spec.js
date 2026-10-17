@@ -127,4 +127,23 @@ test.describe('Add-on navigation: the Add-ons hub tab and the route in both layo
     await page.goto('/app/addons')
     await expect(page.locator('.dk-hubtabs [data-hub-tab="addons"]')).toHaveAttribute('aria-current', 'page')
   })
+
+  test('an old generator link keeps its model, query and hash', async ({ page }) => {
+    await setup(page)
+    await page.goto('/app/image/stable%2Fdiffusion?x=1#top')
+    await expect(page).toHaveURL(/\/app\/studio\/images\/stable%2Fdiffusion\?x=1#top$/)
+  })
+
+  test('the legacy ?tab= link of Studio still works', async ({ page }) => {
+    await setup(page)
+    await page.goto('/app/studio?tab=tts')
+    await expect(page).toHaveURL(/\/app\/studio\/tts$/)
+  })
+
+  test('a viewer without the 3d feature still ends on the app home', async ({ page }) => {
+    await setup(page)
+    await page.route('**/api/auth/status', route => route.fulfill({ json: sessionFor(MEMBER, { addons: true, '3d': false }) }))
+    await page.goto('/app/3d')
+    await expect(page).toHaveURL(/\/app$/)
+  })
 })

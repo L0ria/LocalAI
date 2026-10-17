@@ -82,13 +82,13 @@ const Home = page('', () => import('./pages/Home'))
 const Chat = page('chat', () => import('./pages/Chat'))
 const Models = page('models', () => import('./pages/Models'))
 const ManageRedirect = page('manage', () => import('./pages/ManageRedirect'))
-const ImageGen = page('image', () => import('./pages/ImageGen'))
-const VideoGen = page('video', () => import('./pages/VideoGen'))
-const ThreeDGen = page('3d', () => import('./pages/ThreeDGen'))
-const TTS = page('tts', () => import('./pages/TTS'))
-const Sound = page('sound', () => import('./pages/Sound'))
-const Diarization = page('diarization', () => import('./pages/Diarization'))
-const AudioTransform = page('transform', () => import('./pages/AudioTransform'))
+page('image', () => import('./pages/ImageGen'))
+page('video', () => import('./pages/VideoGen'))
+page('3d', () => import('./pages/ThreeDGen'))
+page('tts', () => import('./pages/TTS'))
+page('sound', () => import('./pages/Sound'))
+page('diarization', () => import('./pages/Diarization'))
+page('transform', () => import('./pages/AudioTransform'))
 const Talk = page('talk', () => import('./pages/Talk'))
 // Referenced only from JSX below — same blind spot as Activity further down.
 // eslint-disable-next-line no-unused-vars
@@ -168,6 +168,7 @@ import HubLayout from './components/hub/HubLayout'
 import { AddonRegistryProvider } from './addons/registry'
 import { useAuth } from './context/AuthContext'
 import { NavigationProvider, useNavigation } from './context/NavigationContext'
+import { studioRedirect } from './utils/legacyRoutes'
 import { buildHub, operateHub } from './components/hub/hubConfig'
 import { useHubAuth } from './components/hub/useHubAuth'
 
@@ -178,6 +179,14 @@ function AgentChatRedirect() {
   const { name } = useParams()
   const { search } = useLocation()
   return <Navigate to={`/app/agents/${encodeURIComponent(name)}${search}`} replace />
+}
+
+// An old generator link opens the same generator inside Studio. The model,
+// the query string and the hash are kept.
+function StudioTabRedirect({ legacy }) {
+  const { model } = useParams()
+  const { search, hash } = useLocation()
+  return <Navigate to={studioRedirect(legacy, model, search, hash)} replace />
 }
 
 function BrowseRedirect() {
@@ -218,24 +227,26 @@ const appChildren = [
   { index: true, element: <Home /> },
   { path: 'chat', element: <Chat /> },
   { path: 'chat/:model', element: <Chat /> },
-  { path: 'image', element: <ImageGen /> },
-  { path: 'image/:model', element: <ImageGen /> },
-  { path: 'video', element: <VideoGen /> },
-  { path: 'video/:model', element: <VideoGen /> },
-  { path: '3d', element: <Feature feature="3d"><ThreeDGen /></Feature> },
-  { path: '3d/:model', element: <Feature feature="3d"><ThreeDGen /></Feature> },
-  { path: 'tts', element: <TTS /> },
-  { path: 'tts/:model', element: <TTS /> },
-  { path: 'sound', element: <Sound /> },
-  { path: 'sound/:model', element: <Sound /> },
-  { path: 'diarization', element: <Feature feature="audio_diarization"><Diarization /></Feature> },
-  { path: 'diarization/:model', element: <Feature feature="audio_diarization"><Diarization /></Feature> },
-  { path: 'transform', element: <Feature feature="audio_transform"><AudioTransform /></Feature> },
-  { path: 'transform/:model', element: <Feature feature="audio_transform"><AudioTransform /></Feature> },
+  { path: 'image', element: <StudioTabRedirect legacy="image" /> },
+  { path: 'image/:model', element: <StudioTabRedirect legacy="image" /> },
+  { path: 'video', element: <StudioTabRedirect legacy="video" /> },
+  { path: 'video/:model', element: <StudioTabRedirect legacy="video" /> },
+  { path: '3d', element: <Feature feature="3d"><StudioTabRedirect legacy="3d" /></Feature> },
+  { path: '3d/:model', element: <Feature feature="3d"><StudioTabRedirect legacy="3d" /></Feature> },
+  { path: 'tts', element: <StudioTabRedirect legacy="tts" /> },
+  { path: 'tts/:model', element: <StudioTabRedirect legacy="tts" /> },
+  { path: 'sound', element: <StudioTabRedirect legacy="sound" /> },
+  { path: 'sound/:model', element: <StudioTabRedirect legacy="sound" /> },
+  { path: 'diarization', element: <Feature feature="audio_diarization"><StudioTabRedirect legacy="diarization" /></Feature> },
+  { path: 'diarization/:model', element: <Feature feature="audio_diarization"><StudioTabRedirect legacy="diarization" /></Feature> },
+  { path: 'transform', element: <Feature feature="audio_transform"><StudioTabRedirect legacy="transform" /></Feature> },
+  { path: 'transform/:model', element: <Feature feature="audio_transform"><StudioTabRedirect legacy="transform" /></Feature> },
   { path: 'studio', element: <Studio /> },
   // Tabs are path segments, not a query parameter: switching generator is
   // navigation, and ?tab= reads like a filter. Legacy ?tab= links redirect.
   { path: 'studio/:tab', element: <Studio /> },
+  // A generator opened on one model: /app/studio/images/<model>.
+  { path: 'studio/:tab/:model', element: <Studio /> },
   { path: 'talk', element: <Talk /> },
   { path: 'account', element: <Account /> },
   // The Add-ons drawer. A viewer without the addons feature still reaches it

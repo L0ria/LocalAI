@@ -1550,6 +1550,29 @@ new navigation ships; the UI reads it from the `addon_navigation` key of `/api/f
 A tab is addressed as `/app/addons?tab=browse|installed|libraries`. The management link of
 an app (`/app/addons?manage=ID`) opens the Installed tab with that addon's details open.
 
+### Old links
+
+The generators that had their own page now open inside Studio. The old links still work
+and keep the model, the query string and the hash:
+
+| Old link | Opens |
+|---|---|
+| `/app/image` | `/app/studio/images` |
+| `/app/video` | `/app/studio/video` |
+| `/app/3d` | `/app/studio/threed` |
+| `/app/tts` | `/app/studio/tts` |
+| `/app/sound` | `/app/studio/sound` |
+| `/app/diarization` | `/app/studio/diarization` |
+| `/app/transform` | `/app/studio/transform` |
+
+A link with a model (`/app/image/<model>`) opens `/app/studio/images/<model>`. The
+`/app/studio?tab=` links redirect to `/app/studio/<tab>`. A viewer without the `3d`,
+`audio_diarization` or `audio_transform` feature still lands on the app home, as before.
+
+The legacy switch (`LOCALAI_LEGACY_NAVIGATION`) restores the old sidebar and the Add-ons
+tab of the Build hub only. These redirects do not depend on it: with the switch on, the
+old generator links also open Studio.
+
 ### The drawer
 
 The drawer is a grid of tiles with a search box. The built-in tiles (Studio, Talk) come
