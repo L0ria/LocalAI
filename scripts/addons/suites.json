@@ -321,7 +321,11 @@
       "an HTTP 400 answer",
       "an HTTP 422 answer",
       "keeps a bounded, printable reason and nothing else of the body",
-      "leaves 503, 500 and 404 as outages"
+      "leaves 503, 500 and 404 as outages",
+      "types a withdrawn client, a full slot table, a bad envelope and a missing schema as not sent",
+      "keeps a not-sent error an ErrRuntime for callers that do not tell them apart",
+      "types a refused connection as not sent",
+      "never types a possibly-sent request as not sent"
     ],
     "report": ".cache/addons/logs/runtime.json"
   },
@@ -1732,7 +1736,11 @@
       "refuses an incompatible candidate and a library that cannot be read, with a typed answer",
       "reports a lost upgrade as an unknown outcome with its original operation, and a lost status read or check as plainly unavailable",
       "keeps the update actions out of the tools and names every field of the status in the Swagger spec",
-      "answers an add-on's invalid-request refusal as a typed 400 from the owner and from a forwarding frontend"
+      "answers an add-on's invalid-request refusal as a typed 400 from the owner and from a forwarding frontend",
+      "types a withdrawn client, a full slot table, a bad envelope and a missing schema as not sent",
+      "keeps a not-sent error an ErrRuntime for callers that do not tell them apart",
+      "types a refused connection as not sent",
+      "never types a possibly-sent request as not sent"
     ],
     "report": ".cache/addons/logs/apps.json",
     "reports": [
@@ -1825,7 +1833,11 @@
           "an HTTP 400 answer",
           "an HTTP 422 answer",
           "keeps a bounded, printable reason and nothing else of the body",
-          "leaves 503, 500 and 404 as outages"
+          "leaves 503, 500 and 404 as outages",
+          "types a withdrawn client, a full slot table, a bad envelope and a missing schema as not sent",
+          "keeps a not-sent error an ErrRuntime for callers that do not tell them apart",
+          "types a refused connection as not sent",
+          "never types a possibly-sent request as not sent"
         ]
       },
       {
