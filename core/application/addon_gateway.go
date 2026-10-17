@@ -16,11 +16,14 @@ import (
 	"github.com/mudler/LocalAI/core/services/addons"
 	"github.com/mudler/LocalAI/core/services/addons/artifacts"
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
+	"github.com/mudler/LocalAI/core/services/addons/hostops"
 	"github.com/mudler/LocalAI/core/services/addons/policy"
 	"github.com/mudler/LocalAI/core/services/addons/resources"
+	addonruntime "github.com/mudler/LocalAI/core/services/addons/runtime"
 	addontools "github.com/mudler/LocalAI/core/services/addons/tools"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	"github.com/mudler/xlog"
+	"gorm.io/gorm"
 )
 
 func (a *Application) AddonGateway() *gateway.Gateway { return a.addonGateway }
@@ -34,6 +37,39 @@ func (a *Application) AddonToolProvider() *mcpTools.AddonToolProvider {
 		return nil
 	}
 	return mcpTools.NewAddonToolProvider(addontools.NewToolAdapter(a.addonGateway), a.AddonOwnershipMode())
+}
+
+// AddonHostOps is the host operation channel of the add-on supervisor, or nil
+// when this process offers none.
+func (a *Application) AddonHostOps() *addonruntime.HostOps { return a.addonHostOps }
+
+// newAddonHostOps builds the host operation broker for the supervisor of the
+// owner. A frontend without the add-on manager, or a host whose setting names
+// no add-on, builds nothing, so the channel fails closed. The setting is a
+// host setting read at startup; no manifest or request can add to it.
+func (a *Application) newAddonHostOps(m *addons.Manager, limits contract.Limits) *addonruntime.HostOps {
+	allowed := a.applicationConfig.AddonHostOps
+	if m == nil || len(allowed) == 0 {
+		return nil
+	}
+	in := hostops.NewInFlight()
+	return &addonruntime.HostOps{Broker: hostops.New(in, addonFeatureCheck(a.authDB), limits), InFlight: in, Allowed: allowed}
+}
+
+// addonFeatureCheck answers whether an active account holds a feature, with
+// the same rule as the route middleware. Without an account database, or for
+// an account that is not active, the answer is no.
+func addonFeatureCheck(db *gorm.DB) func(userID, feature string) bool {
+	return func(userID, feature string) bool {
+		if db == nil || userID == "" {
+			return false
+		}
+		var u auth.User
+		if db.Where("id = ? AND status = ?", userID, auth.StatusActive).First(&u).Error != nil {
+			return false
+		}
+		return auth.HasFeatureAccess(db, &u, feature)
+	}
 }
 
 // AddonPolicy is the owner-local resource policy. It is nil on frontends and on

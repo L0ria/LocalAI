@@ -80,6 +80,7 @@ type Application struct {
 	addonServer        *http.Server
 	addonSources       *catalog.Sources
 	addonManager       *addons.Manager
+	addonHostOps       *addonruntime.HostOps
 	// The pin store is built once so the routes and the retention sweep share it.
 	addonPinStoreOnce    sync.Once
 	addonPinStore        pins.Store
@@ -882,7 +883,8 @@ func (a *Application) startAddons() error {
 	}
 	if c.InstanceID == c.OwnerID {
 		limits := contract.DefaultLimits()
-		supervisor, err := addonruntime.NewSupervisor(addonruntime.Config{StateRoot: filepath.Join(c.Root, "runtime"), DataRoot: filepath.Join(c.Root, "data"), Limits: limits, ReadyTimeout: limits.ReadTimeout, StableHealth: limits.BackoffMax})
+		a.addonHostOps = a.newAddonHostOps(m, limits)
+		supervisor, err := addonruntime.NewSupervisor(addonruntime.Config{StateRoot: filepath.Join(c.Root, "runtime"), DataRoot: filepath.Join(c.Root, "data"), Limits: limits, ReadyTimeout: limits.ReadTimeout, StableHealth: limits.BackoffMax, HostOps: a.addonHostOps})
 		if err != nil {
 			_ = m.Close()
 			return err

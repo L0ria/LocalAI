@@ -642,6 +642,54 @@ close the manager, and create a new owner manager and supervisor to reconcile th
 durable journal. The existing Linux proc/pidfd identity checks still apply;
 ambiguous pending launches require operator recovery rather than an unsafe kill.
 
+## Host operations
+
+A host operation is how an add-on process asks the host to do something the
+add-on cannot do itself, such as starting a job of the engine. It is contract
+surface that third-party add-ons cannot use unless the host setting names them.
+
+The rules:
+
+- The host lists every operation in its code. No add-on gets an operation that
+  is not listed, and an operation that is not registered is refused. The
+  default is refuse.
+- The host setting `--addon-host-ops` (`LOCALAI_ADDON_HOST_OPS`) names the
+  add-ons that get the channel and the operation prefixes each may call, as a
+  comma list of `addon-id=op-prefix`. The default is
+  `fine-tuning=finetune.,quantization=quantize.`. An empty value names nobody.
+  This is a host setting, not a manifest field and not a model argument.
+- An add-on that the setting names finds two optional fields in its startup
+  object: `hostEndpoint`, a loopback address of the form
+  `http://127.0.0.1:<port>`, and `hostCredential`, a secret of its own that is
+  never the credential of the host-to-add-on channel. Both belong to one
+  incarnation and end with it. An add-on that is not named gets neither field.
+  The protocol version stays 1, and an add-on that ignores the fields works as
+  before.
+- A call is `POST` with the header `X-Addon-Host-Credential` and a JSON object
+  `{"operationId", "op", "arguments"}`. `operationId` is the ID of a request
+  the host is serving for that add-on at that moment. The host looks up the
+  envelope it issued for that request. A call with no live request, with an
+  expired authority or with a scope below the scope of the operation is
+  refused. An `apply` operation needs an `apply` request; a `read` operation
+  runs under a `read`, `preview` or `apply` request.
+- The operation runs as the actor of that envelope, never as a user named in
+  the arguments. The host refuses an argument with a name of identity or
+  authority (for example `userId`, `scope` or `approved`).
+- The host checks the feature of the operation for that actor, as the route
+  middleware does for the same request. In local-owner mode the actor is the
+  local owner and holds every feature.
+- A body larger than the payload limit is refused. An operation that is marked
+  idempotent runs once for one operation ID; a repeat gets the first result.
+- A process that does not run the add-on manager offers no endpoint, so the
+  operation fails closed.
+
+The answer is `{"result": ...}` or `{"error": {"code", "message"}}`. The error
+codes are `no_live_operation`, `scope`, `feature`, `unknown_op`, `bad_request`,
+`too_large`, `not_found`, `conflict` and `unavailable`.
+
+The channel itself ships with no operation. Each operation is added by its own
+change and documented with it.
+
 ## Owner forwarding and HTTP relays
 
 The embedding host can configure `AddonConfig.Transport` at startup. The configuration

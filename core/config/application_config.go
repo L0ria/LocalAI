@@ -57,6 +57,11 @@ func WithAddons(c AddonConfig) AppOption {
 type ApplicationConfig struct {
 	Addons AddonConfig `json:"-" yaml:"-"`
 
+	// AddonHostOps maps an add-on ID to the host operation prefixes it may
+	// call. It is startup-only. Nil or empty means no add-on gets a host
+	// operation endpoint.
+	AddonHostOps map[string][]string `json:"-" yaml:"-"`
+
 	// DiagnosticsRecorder is startup-only and local to this frontend process.
 	DiagnosticsRecorder *diagnostics.Recorder `json:"-" yaml:"-"`
 
