@@ -214,6 +214,13 @@ const VOICE_DIST = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '.
 const VOICE_DIGEST = 'd'.repeat(64)
 const VOICE_BASE = `/api/addons/voice/assets/${VOICE_DIGEST}`
 
+// dist/ is not committed and CI does not build it, so the spec builds the
+// bundle itself, once per run, with the builder of the add-on.
+test.beforeAll(async () => {
+  const { build } = await import('../../../../addons/voice/ui/build.mjs')
+  await build()
+})
+
 const voiceApp = () => app({
   id: 'voice', name: 'voice', title: 'Voice', icon: undefined, generation: 1, version: '0.1.0', mainPage: '/app/addons/voice/recognition',
   ui: { entry: `${VOICE_BASE}/ui/voice.js`, css: [`${VOICE_BASE}/ui/voice.css`], sdk: { min: 2, max: 2 }, pages: ['recognition', 'library', 'create', 'speech'], navigation: [], chatActions: [] },
@@ -318,9 +325,14 @@ test.describe('Add-on navigation: the Voice recognition page', () => {
     await expect(sheet).toHaveCount(0)
     await expect(page.getByTestId('known-list')).toContainText('Ada Byron')
 
+    await page.clock.install()
     await page.getByRole('button', { name: 'Remove Jonas Weber' }).click()
     await expect(page.getByRole('status').filter({ hasText: 'Jonas Weber' })).toBeVisible()
     await page.getByRole('button', { name: 'Undo' }).first().click()
+    // Past the 10 second delay: a cancelled removal must send nothing.
+    await page.clock.fastForward(15000)
+    await page.waitForTimeout(300)
     expect(calls.forget).toHaveLength(0)
+    await expect(page.getByTestId('known-list')).toContainText('Jonas Weber')
   })
 })

@@ -26,11 +26,16 @@ test('recognition: a viewer without voice_recognition gets the off notice, not t
   assert.doesNotMatch(html, /idn-bench/)
 })
 
-test('recognition: the model comes from the first path segment', async () => {
-  const { mod, sdk, calls } = await load()
+test('recognition: the model of the path reaches the model selection', async () => {
+  const seen = []
+  const names = ['Button', 'Spinner', 'EmptyState', 'Badge', 'Stack', 'Text', 'PageHeader', 'ConfirmDialog', 'ErrorWithTraceLink', 'MediaInput', 'WaveformPlayer', 'DistributionBars', 'EmbeddingInspector', 'TabSwitch']
+  const components = Object.fromEntries(names.map(n => [n, (p) => React.createElement('div', null, p.title || p.label || p.children || null)]))
+  components.PageHeader = (p) => React.createElement('header', null, p.title, p.actions)
+  components.ModelSelector = (p) => { seen.push(p.value); return React.createElement('div') }
+  const { mod, sdk } = await load({ components })
   const addon = await mod.createAddon(sdk)
   renderToString(React.createElement(addon.Component, { page: 'recognition', path: 'speechbrain' }))
-  assert.ok(Array.isArray(calls))
+  assert.deepEqual(seen, ['speechbrain'])
 })
 
 test('recognition: a viewer who is not an administrator still gets the workbench and no speech voices tab', async () => {
@@ -50,7 +55,9 @@ test('recognition: an administrator sees the three tabs', async () => {
 
 test('recognition: the bundle carries no face-only canvas and no host import', async () => {
   const { readFileSync } = await import('node:fs')
-  const js = readFileSync(join(here, '../dist/ui/voice.js'), 'utf8')
+  const { build } = await import('../build.mjs')
+  const dir = await build()
+  const js = readFileSync(join(dir, 'ui/voice.js'), 'utf8')
   assert.doesNotMatch(js, /biometrics-bbox/)
   assert.doesNotMatch(js, /from ['"]react(-dom)?/)
 })
