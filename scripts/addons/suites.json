@@ -129,6 +129,7 @@
       "reserves the segments of the navigation routes",
       "refuses an add-on that needs a newer SDK than the host provides, and says so",
       "accepts a range that contains the host SDK",
+      "accepts a range that spans the host SDK",
       "refuses an add-on built for SDK 1 only on a version 2 host",
       "keeps the generic message for a range that is malformed"
     ],

@@ -32,17 +32,32 @@ var _ = Describe("Manifest", func() {
 	})
 
 	It("accepts a range that contains the host SDK", func() {
-		b, _ := os.ReadFile("../../../tests/addons/fixtures/contracts/page.json")
-		m, _ := ParseManifest(b)
+		b, e := os.ReadFile("../../../tests/addons/fixtures/contracts/page.json")
+		Expect(e).NotTo(HaveOccurred())
+		m, e := ParseManifest(b)
+		Expect(e).NotTo(HaveOccurred())
 		m.Capabilities.UI.SDK = VersionRange{Min: 1, Max: 2}
 		host := compatible()
 		host.SDK = HostSDKVersion
 		Expect(ValidateManifest(m, host)).To(Succeed())
 	})
 
+	It("accepts a range that spans the host SDK", func() {
+		b, e := os.ReadFile("../../../tests/addons/fixtures/contracts/page.json")
+		Expect(e).NotTo(HaveOccurred())
+		m, e := ParseManifest(b)
+		Expect(e).NotTo(HaveOccurred())
+		m.Capabilities.UI.SDK = VersionRange{Min: 1, Max: 3}
+		host := compatible()
+		host.SDK = HostSDKVersion
+		Expect(ValidateManifest(m, host)).To(Succeed())
+	})
+
 	It("refuses an add-on built for SDK 1 only on a version 2 host", func() {
-		b, _ := os.ReadFile("../../../tests/addons/fixtures/contracts/page.json")
-		m, _ := ParseManifest(b)
+		b, e := os.ReadFile("../../../tests/addons/fixtures/contracts/page.json")
+		Expect(e).NotTo(HaveOccurred())
+		m, e := ParseManifest(b)
+		Expect(e).NotTo(HaveOccurred())
 		m.Capabilities.UI.SDK = VersionRange{Min: 1, Max: 1}
 		host := compatible()
 		host.SDK = HostSDKVersion
@@ -50,8 +65,10 @@ var _ = Describe("Manifest", func() {
 	})
 
 	It("keeps the generic message for a range that is malformed", func() {
-		b, _ := os.ReadFile("../../../tests/addons/fixtures/contracts/page.json")
-		m, _ := ParseManifest(b)
+		b, e := os.ReadFile("../../../tests/addons/fixtures/contracts/page.json")
+		Expect(e).NotTo(HaveOccurred())
+		m, e := ParseManifest(b)
+		Expect(e).NotTo(HaveOccurred())
 		m.Capabilities.UI.SDK = VersionRange{Min: 3, Max: 2}
 		Expect(ValidateManifest(m, compatible())).To(MatchError("invalid or incompatible UI"))
 	})
