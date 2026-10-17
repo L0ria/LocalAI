@@ -121,7 +121,8 @@ This host provides SDK version 2. An add-on that has a UI declares the SDK
 versions it works with in `ui.sdk` as a range, for example
 `"sdk": {"min": 1, "max": 2}`. The host installs and loads the add-on only when
 its own SDK version is inside that range. If it is not, the install is refused
-with a message that names both ranges:
+with a message that names the range the add-on needs and the SDK version the
+host provides:
 
 ```text
 the add-on needs SDK 3 to 3 and this host provides SDK 2
