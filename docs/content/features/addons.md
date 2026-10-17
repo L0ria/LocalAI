@@ -1611,15 +1611,17 @@ and keep the model, the query string and the hash:
 | `/app/sound` | `/app/studio/sound` |
 | `/app/diarization` | `/app/studio/diarization` |
 | `/app/transform` | `/app/studio/transform` |
+| `/app/face` | `/app/addons/face/recognition` |
+| `/app/face/<model>` | `/app/addons/face/recognition?model=<model>` |
 | `/app/voice` | `/app/addons/voice/recognition` |
 | `/app/voice/<model>` | `/app/addons/voice/recognition?model=<model>` |
 | `/app/voice-library` | `/app/addons/voice/library` |
 | `/app/voice-library/new` | `/app/addons/voice/create` |
 
-The four voice links open the Voice add-on only while it is installed and usable. Without
+The two face links and the four voice links open their add-on only while it is installed and usable. Without
 it, they open the same pages in the core web UI, so nobody loses a page they can open today.
 A model id can hold `/` or `:`, which an add-on path segment refuses, so the model travels
-as `?model=` (for example `/app/voice/org%2Fname` opens `/app/addons/voice/recognition?model=org%2Fname`).
+as `?model=` (for example `/app/voice/org%2Fname` opens `/app/addons/voice/recognition?model=org%2Fname`; the face links do the same).
 
 A link with a model (`/app/image/<model>`) opens `/app/studio/images/<model>`. The
 `/app/studio?tab=` links redirect to `/app/studio/<tab>`. A viewer without the `3d`,
@@ -1654,6 +1656,27 @@ person, the people this browser enrolled, and the analyze and embedding tools un
 tools**. **Speech voices** opens the library page and is shown to administrators only.
 **From a recording** links to the diarization workspace of Studio. The Face add-on shares
 the same views, built from one source directory into each add-on.
+
+### The Face add-on
+
+The Face add-on (`face`) is a packaged add-on, separate from the Voice add-on. It is not
+shipped with LocalAI: install it from **Browse add-ons** in the drawer and start it. Once it
+is usable, it appears in the drawer and can be pinned. The Build hub has no Faces tab.
+
+| Page | Path | Who sees it |
+|---|---|---|
+| Recognition (main page) | `/app/addons/face/recognition` | users with the `face_recognition` feature; the page shows an off notice for anyone else |
+
+The tile needs the `addons` feature. The page calls core routes with the signed-in user's
+own session (see "Core routes from add-ons"): `/v1/face/*` (verify, analyze, embed,
+register, identify, forget) and the model list. The core keeps these routes and the face
+registry; the server checks every call again, so the page never widens what a user may do.
+
+The page holds the face recognition workbench and the management of the known faces: the
+people this browser enrolled, the enrol form and the removal behind Undo. It has no
+administrator-only part, so every user who holds `face_recognition` can use all of it. The
+detect-and-analyze and embedding tools are under **More tools**. The Voice add-on shares the
+same views, built from one source directory into each add-on.
 
 ### The drawer
 
