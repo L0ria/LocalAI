@@ -3,9 +3,10 @@ import { createSpeech } from './Speech.jsx'
 import { createApi } from './api.js'
 import { createVoiceLibrary } from './VoiceLibrary.jsx'
 import { createVoiceProfileCreate } from './VoiceProfileCreate.jsx'
+import { createVoiceRecognition } from './VoiceRecognition.jsx'
+import * as identity from '../../../internal/identity-ui/src/identity.js'
 
-// The second argument is for tests: the host passes the SDK only. Tasks 15-17
-// fill `pages` with the real page components.
+// The second argument is for tests: the host passes the SDK only.
 export function createAddon(sdk, options = {}) {
   const ctx = createContext(sdk)
   const { h } = ctx
@@ -24,6 +25,7 @@ export function createAddon(sdk, options = {}) {
     return <Page {...props} />
   }
   const pages = {
+    recognition: createVoiceRecognition(ctx, api, identity).VoiceRecognition,
     library: adminOnly(createVoiceLibrary(ctx, api).VoiceLibrary),
     create: adminOnly(createVoiceProfileCreate(ctx, api).VoiceProfileCreate),
     speech: createSpeech(ctx).Speech,

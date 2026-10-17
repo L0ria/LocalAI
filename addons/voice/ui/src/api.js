@@ -1,6 +1,8 @@
 // The core routes the Voice add-on uses, reached with the signed-in user's own
 // session (sdk.core.fetch). The shapes are the ones of
 // core/http/react-ui/src/utils/api.js; only the transport changed.
+import { createIdentityApi } from '../../../internal/identity-ui/src/registry.js'
+
 const enc = encodeURIComponent
 
 export function createApi(ctx) {
@@ -12,6 +14,8 @@ export function createApi(ctx) {
     return s ? `?${s}` : ''
   }
   return {
+    // /v1/voice/* and /v1/face/*: verify, analyze, embed, register, identify, forget.
+    identity: createIdentityApi(ctx),
     voiceProfiles: {
       list: () => json('/api/voice-profiles'),
       create: (formData) => json('/api/voice-profiles', { method: 'POST', body: formData }),
