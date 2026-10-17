@@ -56,17 +56,19 @@ function makeSDK(over = {}) {
 
 const app = (over = {}) => ({
   id: 'notes', title: 'Notes', generation: 3, enabled: true, state: 'running',
-  ui: { entry: asset('notes', 'ui.js'), css: [asset('notes', 'ui/style.css')], sdk: { min: 1, max: 1 }, pages: ['home', 'detail'], navigation: ['home'], chatActions: ['summarize'] },
+  ui: { entry: asset('notes', 'ui.js'), css: [asset('notes', 'ui/style.css')], sdk: { min: 1, max: 2 }, pages: ['home', 'detail'], navigation: ['home'], chatActions: ['summarize'] },
   ...over,
 })
 
 // ---- SDK ----------------------------------------------------------------
 
 test('sdk: compatibility accepts only a range that holds the host SDK version', () => {
-  assert.equal(SDK_VERSION, 1)
-  assert.equal(sdkAccepts({ min: 1, max: 1 }), true)
+  assert.equal(SDK_VERSION, 2)
+  assert.equal(sdkAccepts({ min: 1, max: 1 }), false)
+  assert.equal(sdkAccepts({ min: 1, max: 2 }), true)
   assert.equal(sdkAccepts({ min: 1, max: 3 }), true)
-  assert.equal(sdkAccepts({ min: 2, max: 3 }), false)
+  assert.equal(sdkAccepts({ min: 2, max: 3 }), true)
+  assert.equal(sdkAccepts({ min: 3, max: 3 }), false)
   assert.equal(sdkAccepts({ min: 0, max: 1 }), false)
   assert.equal(sdkAccepts({ min: 3, max: 2 }), false)
   assert.equal(sdkAccepts({ min: '1', max: 1 }), false)
@@ -376,15 +378,15 @@ test('loader: an incompatible SDK range is never imported and leaves a clear err
   const env = loaderEnv()
   let imported = false
   await assert.rejects(loadAddonUI({
-    app: app({ ui: { ...app().ui, sdk: { min: 2, max: 4 } } }),
+    app: app({ ui: { ...app().ui, sdk: { min: 3, max: 4 } } }),
     createSDK: () => { throw new Error('must not run') },
     importer: async () => { imported = true; return {} },
     fetchImpl: env.fetchImpl, document: env.doc, origin: ORIGIN,
   }), (e) => e instanceof LoadError && e.code === 'incompatible_sdk')
   assert.equal(imported, false)
   assert.equal(env.styles.length, 0, 'no style sheet was injected')
-  assert.equal(appStatus(app({ ui: { ...app().ui, sdk: { min: 2, max: 4 } } })), 'incompatible')
-  assert.equal(usable(app({ ui: { ...app().ui, sdk: { min: 2, max: 4 } } })), false)
+  assert.equal(appStatus(app({ ui: { ...app().ui, sdk: { min: 3, max: 4 } } })), 'incompatible')
+  assert.equal(usable(app({ ui: { ...app().ui, sdk: { min: 3, max: 4 } } })), false)
 })
 
 test('loader: the module receives only the host SDK, its result is validated and styles are scoped', async () => {
@@ -611,7 +613,7 @@ test('registry: navigation and chat actions come only from usable add-ons of the
     app({ id: 'tables', title: 'Tables', ui: { ...app().ui, entry: asset('tables', 'ui.js'), css: [], navigation: ['home', 'detail'] } }),
     app({ id: 'off', enabled: false, state: 'stopped' }),
     app({ id: 'crashed', state: 'failed' }),
-    app({ id: 'future', ui: { ...app().ui, sdk: { min: 2, max: 2 } } }),
+    app({ id: 'future', ui: { ...app().ui, sdk: { min: 3, max: 3 } } }),
     app({ id: 'headless', ui: undefined }),
   ]
   const items = navigationItems(list, { language: 'en' })

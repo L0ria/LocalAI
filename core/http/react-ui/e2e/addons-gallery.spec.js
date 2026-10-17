@@ -263,7 +263,7 @@ test.describe('Add-ons: apps', () => {
 
 test.describe('Add-ons: registry polling', () => {
   const leave = (page) => page.evaluate(() => { window.history.pushState({}, '', '/app/chat'); window.dispatchEvent(new PopStateEvent('popstate')) })
-  const contributing = (over = {}) => app({ ui: { entry: '/api/addons/notes/assets/' + 'c'.repeat(64) + '/ui.js', css: [], sdk: { min: 1, max: 1 }, pages: ['home'], navigation: ['home'] }, ...over })
+  const contributing = (over = {}) => app({ ui: { entry: '/api/addons/notes/assets/' + 'c'.repeat(64) + '/ui.js', css: [], sdk: { min: 1, max: 2 }, pages: ['home'], navigation: ['home'] }, ...over })
 
   test('apps: an add-on that contributes UI keeps the list current off the page and its disable stops the reads', async ({ page }) => {
     await signIn(page, MEMBER, { addons: true })

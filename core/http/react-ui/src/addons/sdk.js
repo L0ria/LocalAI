@@ -10,7 +10,7 @@
 
 import { resourceOperationId, resourceRequest } from './resourceCalls.js'
 
-export const SDK_VERSION = 1
+export const SDK_VERSION = 2
 
 // Semantic icon names an add-on may draw. The host Icon wrapper falls back to a
 // neutral glyph for any other name, so a module cannot probe the sprite.

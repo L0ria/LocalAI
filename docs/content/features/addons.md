@@ -115,6 +115,24 @@ needs none of them.
 | `ui.icon` | A packaged image: `.png`, `.webp`, `.jpg` or `.jpeg`, a normalized package-relative path of at most 256 bytes, at most 256 KiB. A remote URL, a `data:` URL, an absolute path and a traversal are rejected. It cannot also be the module or a stylesheet. |
 | `ui.title`, `ui.description` | Plain text: one string, or a map of BCP 47 language tag to string (at most 16 tags). At most 80 and 280 characters. Markup characters (`<`, `>`), control characters and direction overrides are rejected. |
 
+### SDK versions
+
+This host provides SDK version 2. An add-on that has a UI declares the SDK
+versions it works with in `ui.sdk` as a range, for example
+`"sdk": {"min": 1, "max": 2}`. The host installs and loads the add-on only when
+its own SDK version is inside that range. If it is not, the install is refused
+with a message that names both ranges:
+
+```text
+the add-on needs SDK 3 to 3 and this host provides SDK 2
+```
+
+SDK 2 is a superset of SDK 1, but a range is checked as written. A manifest
+that declares only `"max": 1` is refused by a version 2 host. Before you raise
+`max` to 2, check the add-on against the SDK 2 surface. A range that is
+malformed (for example `min` above `max`) keeps the generic `invalid or
+incompatible UI` error.
+
 ## Runtime wire version 1
 
 JSON field names and ordering follow the exported DTO declarations and

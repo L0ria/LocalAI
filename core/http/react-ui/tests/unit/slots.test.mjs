@@ -18,7 +18,7 @@ const ORIGIN = 'https://host.example'
 
 function ui(over = {}) {
   return {
-    entry: asset('notes', 'ui.js'), css: [], sdk: { min: 1, max: 1 }, pages: ['home'], navigation: [], chatActions: ['summarize', 'inspect'],
+    entry: asset('notes', 'ui.js'), css: [], sdk: { min: 1, max: 2 }, pages: ['home'], navigation: [], chatActions: ['summarize', 'inspect'],
     actions: [
       { id: 'summarize', label: 'Summarize', labels: { en: 'Summarize', it: 'Riassumi' }, icon: 'sparkles', placement: 'composer', tool: 'ping' },
       { id: 'inspect', label: 'Inspect', icon: 'eye', placement: 'message', component: 'InspectPanel' },
@@ -124,7 +124,7 @@ test('slots: contributions come only from enabled, usable, current-generation ad
   // Nothing without the feature.
   assert.deepEqual(ids('settings.sections', { allowed: false }), [])
   // Disabled, crashed, incompatible, no UI, stopped listing: no contribution.
-  for (const next of [app({ enabled: false, state: 'stopped' }), app({ state: 'failed' }), app({ ui: ui({ sdk: { min: 2, max: 3 } }) }), app({ ui: undefined })]) {
+  for (const next of [app({ enabled: false, state: 'stopped' }), app({ state: 'failed' }), app({ ui: ui({ sdk: { min: 3, max: 4 } }) }), app({ ui: undefined })]) {
     assert.deepEqual(ids('settings.sections', { apps: [next] }), [])
     assert.deepEqual(ids('chat.composer.actions', { apps: [next] }), [])
   }
@@ -228,7 +228,7 @@ test('slots: disable, crash and update unmount every contribution through the ru
 })
 
 test('slots: contributions keep the apps list polled while they exist', () => {
-  const only = (u) => [app({ ui: { entry: ui().entry, sdk: { min: 1, max: 1 }, ...u } })]
+  const only = (u) => [app({ ui: { entry: ui().entry, sdk: { min: 1, max: 2 }, ...u } })]
   assert.equal(contributesUI(only({ slots: [{ id: 'a', slot: 'app.nav', component: 'X' }] })), true)
   assert.equal(contributesUI(only({ actions: [{ id: 'a', label: 'A', icon: 'star', placement: 'composer', tool: 'ping' }] })), true)
   assert.equal(contributesUI(only({})), false)

@@ -16,7 +16,7 @@ const base = `/api/addons/uifixture/assets/${DIGEST}`
 function uiApp(over = {}) {
   return app({
     id: 'uifixture', name: 'uifixture', title: 'UI fixture', icon: undefined, generation: 1, mainPage: '/app/addons/uifixture/home',
-    ui: { entry: `${base}/ui.js`, css: [`${base}/ui/style.css`], sdk: { min: 1, max: 1 }, pages: ['home', 'boom', 'dialog'], navigation: ['home'], chatActions: ['summarize'] },
+    ui: { entry: `${base}/ui.js`, css: [`${base}/ui/style.css`], sdk: { min: 1, max: 2 }, pages: ['home', 'boom', 'dialog'], navigation: ['home'], chatActions: ['summarize'] },
     ...over,
   })
 }
@@ -68,7 +68,7 @@ test.describe('Add-on shell', () => {
     await serve(page)
     const requested = []
     page.on('request', r => { if (/\/assets\//.test(r.url()) && r.url().includes('/api/addons/')) requested.push(r.url()) })
-    await mockAddons(page, { apps: [uiApp({ state: 'failed' }), uiApp({ id: 'future', name: 'future', title: 'Future', ui: { ...uiApp().ui, entry: '/api/addons/future/assets/' + DIGEST + '/ui.js', css: [], sdk: { min: 2, max: 2 } } })] })
+    await mockAddons(page, { apps: [uiApp({ state: 'failed' }), uiApp({ id: 'future', name: 'future', title: 'Future', ui: { ...uiApp().ui, entry: '/api/addons/future/assets/' + DIGEST + '/ui.js', css: [], sdk: { min: 3, max: 3 } } })] })
     await page.goto('/app/addons/uifixture/home')
     await expect(page.getByTestId('addon-unavailable')).toHaveAttribute('data-reason', 'failed')
     await page.goto('/app/addons/future/home')

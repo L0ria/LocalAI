@@ -103,7 +103,7 @@ func supervisor() *Supervisor {
 var service = contract.Capabilities{Service: true}
 var _ = Describe("Managed subprocess", func() {
 	It("registers only ready generation bound service headless and UI capabilities", func() {
-		for _, c := range []contract.Capabilities{service, {Tools: []string{"read"}}, {Tools: []string{"read"}, UI: &contract.UI{Entry: "ui.js", SDK: contract.VersionRange{Min: 1, Max: 1}}}} {
+		for _, c := range []contract.Capabilities{service, {Tools: []string{"read"}}, {Tools: []string{"read"}, UI: &contract.UI{Entry: "ui.js", SDK: contract.VersionRange{Min: 1, Max: 2}}}} {
 			s := supervisor()
 			i, e := s.Start(context.Background(), fixture("normal", c), 7)
 			Expect(e).NotTo(HaveOccurred())

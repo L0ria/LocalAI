@@ -25,7 +25,7 @@ func UIPackage(version string, fixture map[string]any) Package {
 		ID: "found-ui", Version: version, Effects: "yes", Fixture: fixture,
 		Capabilities: map[string]any{
 			"service": true, "tools": []string{"echo", "export"},
-			"ui": map[string]any{"entry": "ui.js", "css": []string{"ui.css"}, "sdk": map[string]int{"min": 1, "max": 1}, "pages": []string{"home"}, "mainPage": "home", "title": "Foundation", "description": "Foundation fixture."},
+			"ui": map[string]any{"entry": "ui.js", "css": []string{"ui.css"}, "sdk": map[string]int{"min": 1, "max": 2}, "pages": []string{"home"}, "mainPage": "home", "title": "Foundation", "description": "Foundation fixture."},
 		},
 		Files: map[string]string{"ui.js": UIModule, "ui.css": "body{}\n", "private.txt": "not declared"},
 	}
