@@ -128,6 +128,13 @@ host provides:
 the add-on needs SDK 3 to 3 and this host provides SDK 2
 ```
 
+The dispatch response for that refusal has status 403 and error type
+`sdk_incompatible`, with the message above. Every other failed install keeps
+the generic `Addon request denied` message. If the administrator sends the same
+operation ID again, the owner returns the stored failure, so the repeat gets the
+generic message and not the refusal text. Use a new operation ID to see the
+refusal again.
+
 SDK 2 is a superset of SDK 1, but a range is checked as written. A manifest
 that declares only `"max": 1` is refused by a version 2 host. Before you raise
 `max` to 2, check the add-on against the SDK 2 surface. A range that is

@@ -738,7 +738,7 @@ const docTemplate = `{
                         }
                     },
                     "403": {
-                        "description": "Feature, administration or owner policy denied the request",
+                        "description": "Feature, administration or owner policy denied the request, or type sdk_incompatible when an install is refused because the add-on needs another SDK version: the message names the range the add-on needs and the SDK version the host provides",
                         "schema": {
                             "$ref": "#/definitions/addons.AddonErrorResponse"
                         }
