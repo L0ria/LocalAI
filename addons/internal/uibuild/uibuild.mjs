@@ -6,7 +6,7 @@
 // addons/tables/ui/build.mjs, for add-ons that share this builder.
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
-import { dirname, join, resolve } from 'node:path'
+import { dirname, join, resolve, sep } from 'node:path'
 import { copyFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { deflateSync } from 'node:zlib'
 
@@ -44,6 +44,22 @@ function solidIcon([r, g, b]) {
   return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk('IHDR', head), chunk('IDAT', deflateSync(px, { level: 9 })), chunk('IEND', Buffer.alloc(0))])
 }
 
+// Fails the build when a module of the host UI tree (src/ or node_modules/)
+// is pulled into the bundle: the add-on uses the host's shared components
+// through the SDK, never a second copy.
+function hostGuard() {
+  const prefix = hostUi + sep
+  return {
+    name: 'addon-host-guard',
+    load(id) {
+      if (id.startsWith(prefix)) throw new Error(`the bundle must not include the host UI file ${id}; use the SDK instead`)
+      return null
+    },
+  }
+}
+
+const reactImport = /(?:\bfrom\s*|\bimport\s*\(?\s*|\brequire\s*\(\s*)(['"])(react|react-dom)(?:\/[^'"]*)?\1/
+
 export async function buildAddonUI({ root, name, rgb }) {
   const out = join(root, 'dist')
   const { build: bundle } = await import(require.resolve('rolldown'))
@@ -51,7 +67,10 @@ export async function buildAddonUI({ root, name, rgb }) {
   mkdirSync(join(out, 'ui'), { recursive: true })
   await bundle({
     input: join(root, 'src/index.jsx'),
-    external: [],
+    // React stays a visible import so the check below can see it. The host
+    // gives the add-on React through the SDK, so any such import is refused.
+    external: [/^react(-dom)?(\/|$)/],
+    plugins: [hostGuard()],
     output: { file: join(out, `ui/${name}.js`), format: 'esm', minify: false, sourcemap: false },
     transform: { jsx: { runtime: 'classic', pragma: 'h', pragmaFrag: 'Fragment' } },
     logLevel: 'warn',
@@ -59,7 +78,9 @@ export async function buildAddonUI({ root, name, rgb }) {
   copyFileSync(join(root, 'src/style.css'), join(out, `ui/${name}.css`))
   writeFileSync(join(out, 'ui/icon.png'), solidIcon(rgb))
   const js = readFileSync(join(out, `ui/${name}.js`), 'utf8')
-  if (/from\s+['"](react|react-dom)/.test(js) || /require\(/.test(js)) throw new Error('the bundle must not import React')
+  const bad = reactImport.exec(js)
+  if (bad) throw new Error(`the bundle must not import React: found ${bad[0]}`)
+  if (/\brequire\(/.test(js)) throw new Error('the bundle must not call require()')
   return out
 }
 

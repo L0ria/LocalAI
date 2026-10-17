@@ -1,4 +1,4 @@
 export function createAddon(sdk) {
   const h = sdk.React.createElement
-  return { Component: () => h('p', null, 'fixture'), dispose() {} }
+  return { Component: () => <p className="fx">fixture</p>, dispose() {} }
 }
