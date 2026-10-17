@@ -48,6 +48,8 @@ export function AddonRegistryProvider({ children, api = addonsApi }) {
   const [layers, setLayers] = useState([])
   const navigateRef = useRef(navigate)
   navigateRef.current = navigate
+  const viewerRef = useRef({ isAdmin, hasFeature })
+  viewerRef.current = { isAdmin, hasFeature }
   const notifierRef = useRef(null)
   const locationsRef = useRef(new Map())
   const listeners = useRef(new Set())
@@ -77,7 +79,7 @@ export function AddonRegistryProvider({ children, api = addonsApi }) {
         generation: app.generation,
         signal: own,
         pages: app.ui.pages || [],
-        host,
+        host: { ...host, viewer: { isAdmin: () => viewerRef.current.isAdmin === true, hasFeature: (name) => viewerRef.current.hasFeature(name) === true } },
         bindings: {
           navigate: (path, options) => navigateRef.current(path, options),
           notify: (kind, message) => notifierRef.current?.(kind, message),

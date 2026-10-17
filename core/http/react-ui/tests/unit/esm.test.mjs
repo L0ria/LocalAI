@@ -81,8 +81,8 @@ test('sdk: the object is a frozen allowlist that carries the host React and no h
   assert.equal(sdk.React, host.React)
   assert.equal(Object.isFrozen(sdk), true)
   assert.deepEqual(Object.keys(sdk).sort(), [
-    'Icon', 'React', 'addonId', 'api', 'approvals', 'files', 'generation', 'iconNames', 'isDirty', 'layers', 'locale', 'markDirty', 'navigation',
-    'notify', 'onDispose', 'resources', 'signal', 'theme', 'ui', 'version',
+    'Icon', 'React', 'addonId', 'api', 'approvals', 'files', 'generation', 'hooks', 'iconNames', 'isDirty', 'layers', 'locale', 'markDirty', 'navigation',
+    'notify', 'onDispose', 'resources', 'signal', 'theme', 'ui', 'version', 'viewer',
   ])
   assert.deepEqual(Object.keys(sdk.api).sort(), ['propose', 'read'])
   assert.deepEqual(Object.keys(sdk.ui).sort(), ['Button', 'Text'])

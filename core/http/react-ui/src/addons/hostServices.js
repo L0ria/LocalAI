@@ -3,7 +3,15 @@ import Icon from '../components/Icon'
 import i18n from '../i18n'
 import { addonsApi } from '../utils/addonsClient'
 import { resourceRequest, dispatchArgs } from './resourceCalls'
-import { Button, Spinner, EmptyState, Badge, Stack, Text } from './hostComponents'
+import {
+  Button, Spinner, EmptyState, Badge, Stack, Text,
+  PageHeader, ConfirmDialog, ErrorWithTraceLink, ModelSelector, MediaInput, WaveformPlayer,
+  DistributionBars, EmbeddingInspector, TabSwitch,
+} from './hostComponents'
+import { useMediaCapture, audioBufferToWavBlob } from '../hooks/useMediaCapture'
+import useObjectUrl from '../hooks/useObjectUrl'
+import { useDelayedAction } from '../hooks/useDelayedAction'
+import { basePath } from '../utils/basePath'
 import ArtifactCard from './ArtifactCard'
 
 // The real host services behind the SDK (see sdk.js for what an add-on gets).
@@ -47,7 +55,13 @@ const gatewayApi = {
 
 export const host = Object.freeze({
   React,
-  components: { Button, Spinner, EmptyState, Badge, Stack, Text, ArtifactCard },
+  components: {
+    Button, Spinner, EmptyState, Badge, Stack, Text, ArtifactCard,
+    PageHeader, ConfirmDialog, ErrorWithTraceLink, ModelSelector, MediaInput, WaveformPlayer,
+    DistributionBars, EmbeddingInspector, TabSwitch,
+  },
+  hooks: { useMediaCapture, useObjectUrl, useDelayedAction, audioBufferToWavBlob },
+  basePath,
   Icon,
   theme: { mode: themeMode, subscribe: subscribeTheme },
   language: () => i18n.language || 'en',

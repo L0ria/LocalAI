@@ -150,6 +150,14 @@ test.describe('Add-on navigation', () => {
     await expect(page).toHaveURL(/\/app\/addons\?detail=notes$/)
     await expect(page.getByTestId('addon-detail')).toBeVisible()
   })
+
+  test('core pages that share a primitive with the SDK draw the same header', async ({ page }) => {
+    await setup(page)
+    await page.goto('/app/addons')
+    const header = page.locator('header.page-header').first()
+    await expect(header.locator('h1.page-title')).toHaveText('Add-ons')
+    expect(await header.getAttribute('class')).toBe('page-header page-header--editorial')
+  })
 })
 
 test.describe('Add-on navigation: the Add-ons hub tab and the route in both layouts', () => {

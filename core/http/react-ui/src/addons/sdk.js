@@ -19,6 +19,9 @@ export const ICON_NAMES = Object.freeze([
   'check-circle', 'alert-circle', 'warning', 'info', 'edit', 'trash', 'download', 'upload', 'refresh',
   'settings', 'list', 'grid', 'chart-line', 'clock', 'calendar', 'tag', 'star', 'link', 'external-link',
   'copy', 'eye', 'lock', 'user', 'users', 'message', 'sparkles', 'chevron-down', 'chevron-up', 'chevron-right',
+  'arrow-left', 'arrow-right', 'chart-bar', 'circle-dot', 'clipboard', 'code', 'cube', 'filter-off', 'gender',
+  'globe', 'headphones', 'help-circle', 'mic', 'play', 'plug-off', 'save', 'shield', 'smile', 'waveform',
+  'camera', 'stop', 'circle', 'image', 'spinner', 'user-shield', 'mask',
 ])
 
 // Theme tokens as stable semantic names. Values are CSS custom properties of
@@ -160,6 +163,20 @@ export function createHostSDK({ addonId, generation, signal, pages = [], binding
   for (const [name, Component] of Object.entries(host.components || {})) {
     ui[name] = wrap(Component, {})
   }
+  // Shared hooks of the host, exposed as the host's own functions. They run in
+  // the host's React, so a hook of an add-on page and a hook of a core page are
+  // the same code.
+  const hooks = {}
+  for (const [name, fn] of Object.entries(host.hooks || {})) {
+    if (typeof fn === 'function') hooks[name] = fn
+  }
+  // What the add-on may know about the signed-in user: the role and the
+  // feature flags the host already shows in its own UI. The server still
+  // decides every call.
+  const viewer = Object.freeze({
+    isAdmin: () => host.viewer?.isAdmin?.() === true,
+    hasFeature: (name) => host.viewer?.hasFeature?.(String(name)) === true,
+  })
   const known = new Set(ICON_NAMES)
   const Icon = (props) => {
     const name = known.has(props?.name) ? props.name : 'puzzle'
@@ -258,6 +275,8 @@ export function createHostSDK({ addonId, generation, signal, pages = [], binding
     signal,
     React,
     ui: Object.freeze(ui),
+    hooks: Object.freeze(hooks),
+    viewer,
     Icon,
     iconNames: ICON_NAMES,
     theme: Object.freeze({

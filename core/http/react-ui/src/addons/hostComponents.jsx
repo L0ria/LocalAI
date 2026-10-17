@@ -48,3 +48,16 @@ export function Stack({ gap = 'md', children }) {
 export function Text({ muted, children }) {
   return <p className={muted ? 'ad-text ad-text--muted' : 'ad-text'}>{children}</p>
 }
+
+// Shared primitives and widgets that more than one add-on uses. They are the
+// very components the core pages import: one copy, so a core page and an
+// add-on page draw the same thing.
+export { default as PageHeader } from '../components/PageHeader'
+export { default as ConfirmDialog } from '../components/ConfirmDialog'
+export { default as ErrorWithTraceLink } from '../components/ErrorWithTraceLink'
+export { default as ModelSelector } from '../components/ModelSelector'
+export { default as MediaInput } from '../components/biometrics/MediaInput'
+export { default as WaveformPlayer } from '../components/audio/WaveformPlayer'
+export { default as DistributionBars } from '../components/biometrics/DistributionBars'
+export { default as EmbeddingInspector } from '../components/biometrics/EmbeddingInspector'
+export { default as TabSwitch } from '../components/biometrics/TabSwitch'

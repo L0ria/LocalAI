@@ -135,6 +135,27 @@ operation ID again, the owner returns the stored failure, so the repeat gets the
 generic message and not the refusal text. Use a new operation ID to see the
 refusal again.
 
+### The SDK 2 surface
+
+An add-on page gets these from the SDK object. Props pass through unchanged, and
+the components are the ones the core pages use, so an add-on page and a core page
+draw the same thing.
+
+- `sdk.ui`: `Button`, `Text`, `Stack`, `Badge`, `Spinner`, `EmptyState`, and the
+  shared `PageHeader`, `ConfirmDialog`, `ErrorWithTraceLink`, `ModelSelector`,
+  `MediaInput`, `WaveformPlayer`, `DistributionBars`, `EmbeddingInspector` and
+  `TabSwitch`.
+- `sdk.hooks`: `useMediaCapture`, `useObjectUrl`, `useDelayedAction` and
+  `audioBufferToWavBlob`. They run in the host React, so call them like any hook.
+  A host without them gives an empty object.
+- `sdk.viewer`: `isAdmin()` and `hasFeature(name)`. They answer for the signed-in
+  user and are read-only. The server still decides every call.
+- `sdk.iconNames`: the icon names `sdk.Icon` can draw. Any other name draws a
+  neutral glyph. SDK 2 adds `arrow-left`, `arrow-right`, `chart-bar`, `circle-dot`,
+  `clipboard`, `code`, `cube`, `filter-off`, `gender`, `globe`, `headphones`,
+  `help-circle`, `mic`, `play`, `plug-off`, `save`, `shield`, `smile`, `waveform`,
+  `camera`, `stop`, `circle`, `image`, `spinner`, `user-shield` and `mask`.
+
 SDK 2 is a superset of SDK 1, but a range is checked as written. A manifest
 that declares only `"max": 1` is refused by a version 2 host. Before you raise
 `max` to 2, check the add-on against the SDK 2 surface. A range that is
