@@ -89,6 +89,42 @@ export function resolveSubpath(input, pages) {
   return { page: segments[0], rest: segments.slice(1).join('/'), path: segments.join('/'), search }
 }
 
+// Core routes an add-on page may call. The add-on calls them with the signed-in
+// user's own session, through the same authentication and authorization as any
+// browser request, so it can do nothing the user cannot. Two prefixes are
+// refused: the add-on gateway has its own identity-bound typed calls, and the
+// auth routes hold account credentials.
+const CORE_DENIED = ['/api/addons', '/api/auth']
+
+export function coreRequestUrl(path, basePath = '') {
+  if (typeof path !== 'string' || path.length === 0 || path.length > 2048) return null
+  if (!path.startsWith('/') || path.startsWith('//') || path.includes('\\')) return null
+  // A browser would fold dot segments, written plain or as %2e, and strip tabs
+  // and newlines. Work on the raw text so none of that can hide a segment.
+  if (/[\u0000-\u0020\u007f]/.test(path)) return null
+  const hash = path.indexOf('#')
+  const noHash = hash >= 0 ? path.slice(0, hash) : path
+  const q = noHash.indexOf('?')
+  const pathname = q >= 0 ? noHash.slice(0, q) : noHash
+  const search = q >= 0 ? noHash.slice(q) : ''
+  // Decode every segment. The denied prefixes are compared on the decoded path,
+  // so /api/%61ddons/apps is refused. An encoded slash or backslash in the
+  // first two segments (the namespace) can hide a boundary from that check, so
+  // it is refused there; later it is a legitimate identifier (a%2Fb).
+  const segments = pathname.split('/')
+  const decodedSegments = []
+  for (let i = 0; i < segments.length; i++) {
+    let decoded
+    try { decoded = decodeURIComponent(segments[i]) } catch { return null }
+    if (decoded === '.' || decoded === '..') return null
+    if (i <= 2 && (decoded.includes('/') || decoded.includes('\\'))) return null
+    decodedSegments.push(decoded)
+  }
+  const lower = decodedSegments.join('/').toLowerCase()
+  if (CORE_DENIED.some(p => lower === p || lower.startsWith(`${p}/`))) return null
+  return `${basePath}${pathname}${search}`
+}
+
 // An operation identifier is a namespace name to the owner: it starts with a
 // letter and holds lower-case letters, digits and hyphens. A bare UUID that
 // starts with a digit is refused, so the prefix is part of the identifier.
@@ -268,6 +304,29 @@ export function createHostSDK({ addonId, generation, signal, pages = [], binding
     return handle || { close() {} }
   }
 
+  const core = Object.freeze({
+    // fetch for a core route, with the user's own session. No token, cookie
+    // value or header of the add-on's choosing reaches the request, and the
+    // call ends when the add-on is withdrawn.
+    async fetch(path, init = {}) {
+      alive()
+      const url = coreRequestUrl(path, host.basePath || '')
+      if (!url) throw new AddonSdkError('invalid_path', 'An add-on may call only same-origin core API paths')
+      const headers = new Headers(init.headers || {})
+      headers.delete('authorization')
+      headers.delete('cookie')
+      return (host.fetch || globalThis.fetch)(url, {
+        method: init.method,
+        headers,
+        body: init.body,
+        signal: anySignal(signal, init.signal),
+        credentials: 'same-origin',
+        mode: 'same-origin',
+        redirect: 'error',
+        cache: 'no-store',
+      })
+    },
+  })
   const sdk = {
     version: SDK_VERSION,
     addonId,
@@ -277,6 +336,7 @@ export function createHostSDK({ addonId, generation, signal, pages = [], binding
     ui: Object.freeze(ui),
     hooks: Object.freeze(hooks),
     viewer,
+    core,
     Icon,
     iconNames: ICON_NAMES,
     theme: Object.freeze({

@@ -2097,6 +2097,33 @@ A chat request that has add-on tools enabled carries the conversation in the
 `X-LocalAI-Conversation-Id` header (when it has the shape the server accepts), which is
 how a tool call that names no resource finds the person's selection.
 
+### Core routes from add-ons
+
+An add-on page can call the core API of LocalAI, for example `/v1/face/verify`, with
+`sdk.core.fetch(path, init)`. The call runs with the signed-in user's own session,
+through the same authentication and authorization as any request the browser makes.
+The add-on gets no extra credential and no elevated role: a route that needs the
+administrator role stays closed to a user without it, and a route behind a feature
+(for example `face_recognition`) stays closed to a user whose feature is off. Those
+calls answer `403`, and `401` when the session is missing. The add-on cannot widen
+what the user may do.
+
+`sdk.core.fetch` is `fetch` with a fixed policy. It sends the cookies of the page
+(`credentials: 'same-origin'`), refuses other origins (`mode: 'same-origin'`),
+refuses redirects, and does not use the cache. It removes any `Authorization` and
+`Cookie` header that the add-on sets, and it stops when the add-on is withdrawn.
+
+The path must be a same-origin path that starts with one `/`. These are refused with
+an `invalid_path` error before any request is made:
+
+- an absolute URL, a path that starts with `//`, a backslash, or a control character;
+- a `.` or `..` segment, also when it is written with percent-encoding;
+- the add-on gateway (`/api/addons`) and the auth routes (`/api/auth`). The add-on
+  gateway has its own typed calls, and the auth routes hold account credentials. The
+  check uses the decoded path, so `/api/%61ddons/apps` is refused too;
+- an encoded `/` or `\` in the first two segments, because it can hide a segment
+  boundary. In a later segment it is a normal identifier (`/api/voice-profiles/a%2Fb`).
+
 ### How the host loads it
 
 1. The SDK range must contain the host SDK version (1). Otherwise nothing is imported and
