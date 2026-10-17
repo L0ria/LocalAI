@@ -59,3 +59,9 @@ test('render: the manifest declares the four pages, the main page and SDK 2', as
   assert.deepEqual(m.capabilities.ui.sdk, { min: 2, max: 2 })
   assert.deepEqual(m.capabilities.tools ?? [], [])
 })
+
+test('render: a registered page is drawn with its path', async () => {
+  const { mod, sdk } = await load()
+  const addon = await mod.createAddon(sdk, { pages: { speech: ({ path }) => React.createElement('p', null, `page:${path}`) } })
+  assert.equal(renderToString(React.createElement(addon.Component, { page: 'speech', path: 'abc' })), '<p>page:abc</p>')
+})
