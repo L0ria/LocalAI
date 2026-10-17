@@ -102,6 +102,41 @@ test.describe('Add-on navigation', () => {
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)
     expect(overflow).toBe(false)
   })
+
+  test('an administrator sees a stopped add-on as a tile with a Start action in the detail view', async ({ page }) => {
+    await setup(page, { apps: [app({ id: 'notes', title: 'Notes', enabled: false, state: 'stopped', admin: { canStart: true, canStop: false, managementUrl: '/app/addons?manage=notes' } })] })
+    await page.route('**/api/auth/status', route => route.fulfill({ json: sessionFor({ ...MEMBER, role: 'admin' }, { addons: true }) }))
+    await page.goto('/app/addons?detail=notes')
+    await expect(page.getByTestId('addon-detail').getByRole('button', { name: 'Start' })).toBeVisible()
+  })
+
+  test('the pin control has a visible focus state and a name', async ({ page }) => {
+    await setup(page)
+    await page.goto('/app/addons')
+    const toggle = page.getByTestId('pin-toggle').first()
+    await toggle.focus()
+    const outline = await toggle.evaluate(el => getComputedStyle(el).outlineStyle)
+    expect(outline).not.toBe('none')
+    await expect(toggle).toHaveAccessibleName(/(Pin|Unpin) /)
+  })
+
+  test('a pin of an add-on that is no longer listed is not drawn and shows no error', async ({ page }) => {
+    await setup(page, { pins: ['studio', 'removed-addon'] })
+    await page.goto('/app')
+    const pinned = page.getByTestId('pinned-nav')
+    await expect(pinned.getByRole('link')).toHaveCount(1)
+    await expect(page.getByRole('alert')).toHaveCount(0)
+  })
+
+  test('a stopped pinned add-on is muted and opens the detail view', async ({ page }) => {
+    await setup(page, { pins: ['notes'], apps: [app({ id: 'notes', title: 'Notes', enabled: false, state: 'stopped' })] })
+    await page.route('**/api/auth/status', route => route.fulfill({ json: sessionFor({ ...MEMBER, role: 'admin' }, { addons: true }) }))
+    await page.goto('/app')
+    const link = page.getByTestId('pinned-nav').getByRole('link', { name: /Notes/ })
+    await expect(link).toHaveClass(/nav-item--muted/)
+    await link.click()
+    await expect(page).toHaveURL(/\/app\/addons\?detail=notes$/)
+  })
 })
 
 test.describe('Add-on navigation: the Add-ons hub tab and the route in both layouts', () => {
