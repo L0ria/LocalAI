@@ -10,9 +10,22 @@ export function createAddon(sdk, options = {}) {
   const ctx = createContext(sdk)
   const { h } = ctx
   const api = createApi(ctx)
+  // The library and the profile form are for administrators (the server
+  // refuses everyone else). A viewer who is not one gets this notice and the
+  // page below is never rendered, so it makes no call and shows no profile data.
+  const adminOnly = (Page) => function AdminPage(props) {
+    if (!ctx.viewer.isAdmin()) {
+      return (
+        <main className="page vc-off" data-testid="voice-admin-only">
+          <ctx.ui.PageHeader title={ctx.t('voice.adminOnly.title')} supporting={ctx.t('voice.adminOnly.text')} />
+        </main>
+      )
+    }
+    return <Page {...props} />
+  }
   const pages = {
-    library: createVoiceLibrary(ctx, api).VoiceLibrary,
-    create: createVoiceProfileCreate(ctx, api).VoiceProfileCreate,
+    library: adminOnly(createVoiceLibrary(ctx, api).VoiceLibrary),
+    create: adminOnly(createVoiceProfileCreate(ctx, api).VoiceProfileCreate),
     speech: createSpeech(ctx).Speech,
     ...options.pages,
   }
@@ -23,3 +36,6 @@ export function createAddon(sdk, options = {}) {
   }
   return { Component, components: {}, chatActions: [], dispose() {} }
 }
+
+// For tests: the context of an SDK, built the way createAddon builds it.
+export const __ctxFor = (sdk) => createContext(sdk)

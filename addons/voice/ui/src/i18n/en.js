@@ -1,5 +1,7 @@
 // Generated once from the host locale files; edit by hand from here on.
 export default {
+  "voice.adminOnly.title": "Administrators only",
+  "voice.adminOnly.text": "Saved voices can be managed by an administrator of this server. Ask one if you need a voice added or removed.",
   "speech.title": "Speak text",
   "speech.lede": "Turn text into speech with a voice model of this server.",
   "speech.model": "Model",

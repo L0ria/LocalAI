@@ -39,9 +39,58 @@ test('api: the voice profile calls use the core routes through sdk.core.fetch', 
   void createContext
 })
 
-test('library: the admin-only actions are hidden for a viewer who is not an administrator', async () => {
-  const { mod, sdk } = await load({ viewer: { isAdmin: () => false, hasFeature: () => true } })
+// renderToString does not run effects. This host React queues them so a test
+// can run them after the first paint and see which calls the page makes.
+function queuedEffects() {
+  const queue = []
+  return { React: { ...React, useEffect: (fn) => { queue.push(fn) } }, run: () => queue.splice(0).forEach(fn => fn()) }
+}
+const profileCalls = (calls) => calls.filter(([url]) => /^\/api\/(voice-profiles|models|operations)/.test(url))
+
+for (const page of ['library', 'create']) {
+  test(`${page}: a viewer who is not an administrator sees the off notice and the page makes no call`, async () => {
+    const q = queuedEffects()
+    const { mod, sdk, calls } = await load({ React: q.React, viewer: { isAdmin: () => false, hasFeature: () => true } })
+    const addon = await mod.createAddon(sdk)
+    const html = renderToString(React.createElement(addon.Component, { page, path: '' }))
+    q.run()
+    await new Promise(r => setTimeout(r, 20))
+    assert.match(html, /data-testid="voice-admin-only"/)
+    assert.doesNotMatch(html, /data-testid="voice-library-new"|data-testid="voice-library"|data-testid="voice-profile-create"/)
+    assert.deepEqual(profileCalls(calls), [])
+  })
+}
+
+test('library: an administrator gets the library and the profile list is requested', async () => {
+  const q = queuedEffects()
+  const { mod, sdk, calls } = await load({ React: q.React })
   const addon = await mod.createAddon(sdk)
   const html = renderToString(React.createElement(addon.Component, { page: 'library', path: '' }))
-  assert.doesNotMatch(html, /data-testid="voice-library-new"/)
+  q.run()
+  await new Promise(r => setTimeout(r, 20))
+  assert.doesNotMatch(html, /voice-admin-only/)
+  assert.ok(calls.some(([url]) => url === '/api/voice-profiles'), 'the list call was not made')
+})
+
+test('ctx: audioUrl adds the path prefix of the page, read from the base element', async () => {
+  const { mod, sdk } = await load()
+  const { createApi } = await import('../src/api.js')
+  const saved = globalThis.document
+  globalThis.document = { querySelector: (sel) => (sel === 'base[href]' ? { getAttribute: () => 'http://host.test/prefix/' } : null) }
+  try {
+    const ctx = mod.__ctxFor(sdk)
+    assert.equal(ctx.basePath, '/prefix')
+    assert.equal(createApi(ctx).voiceProfiles.audioUrl('a/b'), '/prefix/api/voice-profiles/a%2Fb/audio')
+  } finally {
+    if (saved === undefined) delete globalThis.document
+    else globalThis.document = saved
+  }
+})
+
+test('ctx: json throws the message of the API error and falls back to the status', async () => {
+  const bad = (body) => ({ fetch: async () => ({ ok: false, status: 500, json: async () => { if (body instanceof Error) throw body; return body } }) })
+  let loaded = await load(bad({ error: { message: 'boom' } }))
+  await assert.rejects(() => loaded.mod.__ctxFor(loaded.sdk).json('/api/voice-profiles'), /boom/)
+  loaded = await load(bad(new Error('not json')))
+  await assert.rejects(() => loaded.mod.__ctxFor(loaded.sdk).json('/api/voice-profiles'), /HTTP 500/)
 })
