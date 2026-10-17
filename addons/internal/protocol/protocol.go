@@ -36,6 +36,10 @@ type Startup struct {
 	Credential   string          `json:"credential"`
 	Limits       contract.Limits `json:"limits"`
 	DataDir      string          `json:"dataDir,omitempty"`
+	// HostEndpoint and HostCredential are set only for an add-on that the host
+	// setting names. They reach the host operation channel.
+	HostEndpoint   string `json:"hostEndpoint,omitempty"`
+	HostCredential string `json:"hostCredential,omitempty"`
 }
 type ApplyRequest struct {
 	Envelope contract.Envelope `json:"envelope"`
