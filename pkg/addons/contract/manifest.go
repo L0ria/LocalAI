@@ -22,6 +22,14 @@ const SchemaVersion = 1
 // refuses it at install.
 const HostSDKVersion uint64 = 2
 
+// SDKRefusal is the install-time refusal of an add-on whose ui.sdk range does
+// not contain the host SDK version. Its text is meant for the administrator.
+type SDKRefusal struct{ Min, Max, Host uint64 }
+
+func (e *SDKRefusal) Error() string {
+	return fmt.Sprintf("the add-on needs SDK %d to %d and this host provides SDK %d", e.Min, e.Max, e.Host)
+}
+
 // Bounds of the optional apps-surface fields. They are character counts, not
 // bytes, so a title in any script has the same room.
 const (
@@ -332,7 +340,7 @@ func ValidateManifest(m Manifest, h HostCompatibility) error {
 	}
 	if u := c.UI; u != nil {
 		if u.SDK.Min > 0 && u.SDK.Max >= u.SDK.Min && !u.SDK.accepts(h.SDK) {
-			return fmt.Errorf("the add-on needs SDK %d to %d and this host provides SDK %d", u.SDK.Min, u.SDK.Max, h.SDK)
+			return &SDKRefusal{Min: u.SDK.Min, Max: u.SDK.Max, Host: h.SDK}
 		}
 		if !relativePath(u.Entry) || !u.SDK.accepts(h.SDK) || !uniqueIDs(u.Pages) || !uniqueIDs(u.Navigation) {
 			return fmt.Errorf("invalid or incompatible UI")

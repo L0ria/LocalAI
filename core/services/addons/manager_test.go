@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -37,12 +38,29 @@ var ctx = context.Background()
 var actor = contract.Actor{UserID: "admin", CredentialID: "key", Mode: "named-user"}
 
 func fixture() (OwnerConfig, catalog.Catalog, *packages.Installer) {
-	root := GinkgoT().TempDir()
 	manifest, e := os.ReadFile("../../../tests/addons/fixtures/packages/manifest.json")
 	Expect(e).NotTo(HaveOccurred())
+	return fixtureFor(manifest)
+}
+
+// uiFixture is the package fixture with a UI that accepts the given SDK range.
+func uiFixture(min, max uint64) (OwnerConfig, catalog.Catalog, *packages.Installer) {
+	manifest, e := os.ReadFile("../../../tests/addons/fixtures/packages/manifest.json")
+	Expect(e).NotTo(HaveOccurred())
+	var m contract.Manifest
+	Expect(json.Unmarshal(manifest, &m)).To(Succeed())
+	m.Capabilities.UI = &contract.UI{Entry: "ui.js", SDK: contract.VersionRange{Min: min, Max: max}, Pages: []string{"home"}, MainPage: "home"}
+	manifest, e = json.Marshal(m)
+	Expect(e).NotTo(HaveOccurred())
+	return fixtureFor(manifest)
+}
+
+func fixtureFor(manifest []byte) (OwnerConfig, catalog.Catalog, *packages.Installer) {
+	root := GinkgoT().TempDir()
+	var e error
 	var b bytes.Buffer
 	tw := tar.NewWriter(&b)
-	for name, data := range map[string][]byte{"manifest.json": manifest, "bin/sample": []byte("binary")} {
+	for name, data := range map[string][]byte{"manifest.json": manifest, "bin/sample": []byte("binary"), "ui.js": []byte("export {}")} {
 		Expect(tw.WriteHeader(&tar.Header{Name: name, Mode: 0755, Size: int64(len(data))})).To(Succeed())
 		_, e = tw.Write(data)
 		Expect(e).NotTo(HaveOccurred())
@@ -90,6 +108,22 @@ func command(id, action string) LifecycleCommand {
 }
 
 var _ = Describe("designated owner lifecycle", func() {
+	It("carries the SDK refusal text to the caller of a failed install and keeps the generic error", func() {
+		cfg, c, i := uiFixture(2, 2) // the installer host provides SDK 1
+		m := open(cfg, c, i)
+		_, e := m.Submit(ctx, actor, command("op-sdk", "install"))
+		Expect(e).To(MatchError(ErrOperationFailed))
+		Expect(e.Error()).To(ContainSubstring("the add-on needs SDK 2 to 2 and this host provides SDK 1"))
+	})
+
+	It("installs an add-on whose SDK range contains the host SDK", func() {
+		cfg, c, i := uiFixture(1, 2)
+		m := open(cfg, c, i)
+		st, e := m.Submit(ctx, actor, command("op-sdk-ok", "install"))
+		Expect(e).NotTo(HaveOccurred())
+		Expect(st.Phase).To(Equal("completed"))
+	})
+
 	It("rejects symlinked package roots without touching external staging", func() {
 		cfg, c, i := fixture()
 		m := open(cfg, c, i)

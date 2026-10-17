@@ -201,7 +201,7 @@ func (m *Manager) reconcileData(ctx context.Context) {
 // recovery package. The caller holds the lock. The generation is published
 // with the journal ordering of a plain upgrade, from inside the recovery
 // sequence, once the candidate has migrated the data and is healthy.
-func (m *Manager) upgradeWithRecovery(ctx context.Context, cmd LifecycleCommand, op journalOperation, next *Status, staged packages.StagedPackage, fail func() (OperationStatus, error)) (OperationStatus, error) {
+func (m *Manager) upgradeWithRecovery(ctx context.Context, cmd LifecycleCommand, op journalOperation, next *Status, staged packages.StagedPackage, fail func(...error) (OperationStatus, error)) (OperationStatus, error) {
 	var result OperationStatus
 	var applyErr error
 	applied := false

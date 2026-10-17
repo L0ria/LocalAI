@@ -5,6 +5,7 @@ package addons
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -308,11 +309,19 @@ func (m *Manager) Submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 			return op.Status, e
 		}
 	}
-	fail := func() (OperationStatus, error) {
+	// fail ends the operation. A cause that is an SDK refusal keeps its text for
+	// the administrator; the returned error still matches ErrOperationFailed.
+	fail := func(cause ...error) (OperationStatus, error) {
 		op.Status.Phase = "failed"
 		m.journal.Operations[cmd.OperationID] = op
 		if e := m.persist("failed"); e != nil {
 			return op.Status, e
+		}
+		for _, c := range cause {
+			var refusal *contract.SDKRefusal
+			if errors.As(c, &refusal) {
+				return op.Status, fmt.Errorf("%w: %s", ErrOperationFailed, refusal)
+			}
 		}
 		return op.Status, ErrOperationFailed
 	}
@@ -339,7 +348,7 @@ func (m *Manager) Submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 			}
 			staged, e := m.installer.Stage(ctx, r, nil)
 			if e != nil {
-				return fail()
+				return fail(e)
 			}
 			if release != nil {
 				// An explicit upgrade never changes the trusted identity,
