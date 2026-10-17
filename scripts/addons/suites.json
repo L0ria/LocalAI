@@ -278,7 +278,9 @@
       "lets an administrator refresh and everyone with the feature read a redacted status",
       "shows the pending update in the apps list from the cache only",
       "does not accept pins without an update checker or on another action",
-      "keeps the unpinned typed upgrade of an earlier release working"
+      "keeps the unpinned typed upgrade of an earlier release working",
+      "carries the SDK refusal text to the caller of a failed install and keeps the generic error",
+      "installs an add-on whose SDK range contains the host SDK"
     ],
     "report": ".cache/addons/logs/lifecycle.json"
   },
@@ -617,7 +619,9 @@
           "refuses an incompatible candidate and a library that cannot be read, with a typed answer",
           "reports a lost upgrade as an unknown outcome with its original operation, and a lost status read or check as plainly unavailable",
           "keeps the update actions out of the tools and names every field of the status in the Swagger spec",
-          "answers an add-on's invalid-request refusal as a typed 400 from the owner and from a forwarding frontend"
+          "answers an add-on's invalid-request refusal as a typed 400 from the owner and from a forwarding frontend",
+          "returns the SDK refusal text to the administrator and the generic message for an unrelated failure",
+          "returns the same text through a forwarding frontend"
         ]
       }
     ]
@@ -1164,7 +1168,9 @@
           "refuses an incompatible candidate and a library that cannot be read, with a typed answer",
           "reports a lost upgrade as an unknown outcome with its original operation, and a lost status read or check as plainly unavailable",
           "keeps the update actions out of the tools and names every field of the status in the Swagger spec",
-          "answers an add-on's invalid-request refusal as a typed 400 from the owner and from a forwarding frontend"
+          "answers an add-on's invalid-request refusal as a typed 400 from the owner and from a forwarding frontend",
+          "returns the SDK refusal text to the administrator and the generic message for an unrelated failure",
+          "returns the same text through a forwarding frontend"
         ]
       }
     ]
@@ -1542,7 +1548,9 @@
           "refuses an incompatible candidate and a library that cannot be read, with a typed answer",
           "reports a lost upgrade as an unknown outcome with its original operation, and a lost status read or check as plainly unavailable",
           "keeps the update actions out of the tools and names every field of the status in the Swagger spec",
-          "answers an add-on's invalid-request refusal as a typed 400 from the owner and from a forwarding frontend"
+          "answers an add-on's invalid-request refusal as a typed 400 from the owner and from a forwarding frontend",
+          "returns the SDK refusal text to the administrator and the generic message for an unrelated failure",
+          "returns the same text through a forwarding frontend"
         ]
       }
     ]
@@ -1804,7 +1812,9 @@
           "lets an administrator refresh and everyone with the feature read a redacted status",
           "shows the pending update in the apps list from the cache only",
           "does not accept pins without an update checker or on another action",
-          "keeps the unpinned typed upgrade of an earlier release working"
+          "keeps the unpinned typed upgrade of an earlier release working",
+          "carries the SDK refusal text to the caller of a failed install and keeps the generic error",
+          "installs an add-on whose SDK range contains the host SDK"
         ]
       },
       {
@@ -1916,7 +1926,9 @@
           "refuses an incompatible candidate and a library that cannot be read, with a typed answer",
           "reports a lost upgrade as an unknown outcome with its original operation, and a lost status read or check as plainly unavailable",
           "keeps the update actions out of the tools and names every field of the status in the Swagger spec",
-          "answers an add-on's invalid-request refusal as a typed 400 from the owner and from a forwarding frontend"
+          "answers an add-on's invalid-request refusal as a typed 400 from the owner and from a forwarding frontend",
+          "returns the SDK refusal text to the administrator and the generic message for an unrelated failure",
+          "returns the same text through a forwarding frontend"
         ]
       }
     ]

@@ -114,6 +114,10 @@ var _ = Describe("designated owner lifecycle", func() {
 		_, e := m.Submit(ctx, actor, command("op-sdk", "install"))
 		Expect(e).To(MatchError(ErrOperationFailed))
 		Expect(e.Error()).To(ContainSubstring("the add-on needs SDK 2 to 2 and this host provides SDK 1"))
+		// The same operation ID again returns the stored failure, without the text.
+		_, e = m.Submit(ctx, actor, command("op-sdk", "install"))
+		Expect(e).To(MatchError(ErrOperationFailed))
+		Expect(e.Error()).NotTo(ContainSubstring("SDK"))
 	})
 
 	It("installs an add-on whose SDK range contains the host SDK", func() {
