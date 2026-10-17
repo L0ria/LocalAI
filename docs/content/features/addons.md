@@ -1611,6 +1611,15 @@ and keep the model, the query string and the hash:
 | `/app/sound` | `/app/studio/sound` |
 | `/app/diarization` | `/app/studio/diarization` |
 | `/app/transform` | `/app/studio/transform` |
+| `/app/voice` | `/app/addons/voice/recognition` |
+| `/app/voice/<model>` | `/app/addons/voice/recognition?model=<model>` |
+| `/app/voice-library` | `/app/addons/voice/library` |
+| `/app/voice-library/new` | `/app/addons/voice/create` |
+
+The four voice links open the Voice add-on only while it is installed and usable. Without
+it, they open the same pages in the core web UI, so nobody loses a page they can open today.
+A model id can hold `/` or `:`, which an add-on path segment refuses, so the model travels
+as `?model=` (for example `/app/voice/org%2Fname` opens `/app/addons/voice/recognition?model=org%2Fname`).
 
 A link with a model (`/app/image/<model>`) opens `/app/studio/images/<model>`. The
 `/app/studio?tab=` links redirect to `/app/studio/<tab>`. A viewer without the `3d`,
@@ -1619,6 +1628,32 @@ A link with a model (`/app/image/<model>`) opens `/app/studio/images/<model>`. T
 The legacy switch (`LOCALAI_LEGACY_NAVIGATION`) restores the old sidebar and the Add-ons
 tab of the Build hub only. These redirects do not depend on it: with the switch on, the
 old generator links also open Studio.
+
+### The Voice add-on
+
+The Voice add-on (`voice`) is a packaged add-on. It is not shipped with LocalAI: install it
+from **Browse add-ons** in the drawer and start it. Once it is usable, it appears in the
+drawer and can be pinned. The Build hub has no Voices tab.
+
+| Page | Path | Who sees it |
+|---|---|---|
+| Recognition (main page) | `/app/addons/voice/recognition` | users with the `voice_recognition` feature; the page shows an off notice for anyone else |
+| Speech (text to speech) | `/app/addons/voice/speech` | users with the `addons` feature; the server refuses the speech call without `audio_speech` |
+| Library | `/app/addons/voice/library` | administrators |
+| Create | `/app/addons/voice/create` | administrators |
+
+All of these also need the `addons` feature to see the tile. The pages call core routes
+with the signed-in user's own session (see "Core routes from add-ons"): `/v1/voice/*` for
+recognition (verify, analyze, embed, register, identify, forget), `/api/voice-profiles`
+for the library and `/v1/audio/speech` for the speech page. The core keeps the voice
+registry and these routes; the server checks every call again, so an add-on page never
+widens what a user may do.
+
+The recognition page has three tabs. **Speakers** is the workbench: who is this, same
+person, the people this browser enrolled, and the analyze and embedding tools under **More
+tools**. **Speech voices** opens the library page and is shown to administrators only.
+**From a recording** links to the diarization workspace of Studio. The Face add-on shares
+the same views, built from one source directory into each add-on.
 
 ### The drawer
 
