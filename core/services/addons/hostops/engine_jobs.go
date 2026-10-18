@@ -292,8 +292,8 @@ func jobIDArg(raw json.RawMessage) (string, error) {
 	if err := decodeArgs(raw, &a); err != nil {
 		return "", err
 	}
-	if a.JobID == "" || len(a.JobID) > maxRefBytes {
-		return "", fmt.Errorf("%w: jobId is required", ErrBadRequest)
+	if err := checkJobID(a.JobID); err != nil {
+		return "", err
 	}
 	return a.JobID, nil
 }
