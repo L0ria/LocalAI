@@ -56,6 +56,17 @@ func (a *Application) newAddonHostOps(m *addons.Manager, limits contract.Limits)
 	return &addonruntime.HostOps{Broker: hostops.New(in, addonFeatureCheck(a.authDB), limits), InFlight: in, Allowed: allowed}
 }
 
+// RegisterAddonEngineJobs registers the engine job operations with the services
+// the routes use. The broker is built at startup and the services after it, so
+// the HTTP setup calls this once they exist. A frontend without the broker has
+// nothing to register, and the channel then fails closed.
+func (a *Application) RegisterAddonEngineJobs(ft hostops.FineTuner, q hostops.Quantizer, backends hostops.BackendLister) error {
+	if a.addonHostOps == nil {
+		return nil
+	}
+	return hostops.RegisterEngineJobs(a.addonHostOps.Broker, ft, q, backends)
+}
+
 // addonFeatureCheck answers whether an active account holds a feature, with
 // the same rule as the route middleware. Without an account database, or for
 // an account that is not active, the answer is no.

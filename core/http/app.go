@@ -562,6 +562,13 @@ func API(application *application.Application) (*echo.Echo, error) {
 	)
 	routes.RegisterQuantizationRoutes(e, qService, application.ApplicationConfig(), application, quantizationMw)
 
+	// The add-on host operations reach the same services as the routes. Only the
+	// owner of an add-on host has a broker, so elsewhere this registers nothing.
+	engineBackends := localai.EngineBackends{AppConfig: application.ApplicationConfig(), Capabilities: routes.ClusterCapabilityProviderFor(application), Installed: routes.ClusterInstalledProviderFor(application)}
+	if err := application.RegisterAddonEngineJobs(localai.FineTuneJobs{Svc: ftService}, localai.QuantizationJobs{Svc: qService}, engineBackends); err != nil {
+		return nil, err
+	}
+
 	// Node management routes (distributed mode)
 	distCfg := application.ApplicationConfig().Distributed
 	var registry *nodes.NodeRegistry
