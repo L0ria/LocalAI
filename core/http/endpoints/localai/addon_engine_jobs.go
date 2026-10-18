@@ -146,3 +146,56 @@ func (q QuantizationJobs) Get(userID, jobID string) (*schema.QuantizationJob, er
 func (q QuantizationJobs) List(userID string) []*schema.QuantizationJob {
 	return q.Svc.ListJobs(userID)
 }
+
+// FineTuneProgress adapts the fine-tuning service to the progress and stop
+// operations. A job the user does not hold is not found, as in FineTuneJobs.
+type FineTuneProgress struct{ Svc *finetune.FineTuneService }
+
+var _ hostops.ProgressSource = FineTuneProgress{}
+
+func (f FineTuneProgress) StreamProgress(ctx context.Context, userID, jobID string, cb func(hostops.Progress)) error {
+	return f.Svc.StreamProgress(ctx, userID, jobID, func(ev *schema.FineTuneProgressEvent) {
+		cb(hostops.Progress{JobID: ev.JobID, Status: ev.Status, Message: ev.Message, Percent: ev.ProgressPercent})
+	})
+}
+
+// Snapshot carries no percent: a job keeps none between events.
+func (f FineTuneProgress) Snapshot(userID, jobID string) (hostops.Progress, error) {
+	j, err := f.Svc.GetJob(userID, jobID)
+	if err != nil {
+		return hostops.Progress{}, fmt.Errorf("%w: %w", hostops.ErrNotFound, err)
+	}
+	return hostops.Progress{JobID: j.ID, Status: j.Status, Message: j.Message}, nil
+}
+
+func (f FineTuneProgress) StopJob(ctx context.Context, userID, jobID string, saveCheckpoint bool) error {
+	return f.Svc.StopJob(ctx, userID, jobID, saveCheckpoint)
+}
+
+// QuantizationProgress adapts the quantization service to the progress and
+// stop operations. A quantization job keeps no checkpoint, so saveCheckpoint
+// is ignored.
+type QuantizationProgress struct {
+	Svc *quantization.QuantizationService
+}
+
+var _ hostops.ProgressSource = QuantizationProgress{}
+
+func (q QuantizationProgress) StreamProgress(ctx context.Context, userID, jobID string, cb func(hostops.Progress)) error {
+	return q.Svc.StreamProgress(ctx, userID, jobID, func(ev *schema.QuantizationProgressEvent) {
+		cb(hostops.Progress{JobID: ev.JobID, Status: ev.Status, Message: ev.Message, Percent: ev.ProgressPercent})
+	})
+}
+
+// Snapshot carries no percent: a job keeps none between events.
+func (q QuantizationProgress) Snapshot(userID, jobID string) (hostops.Progress, error) {
+	j, err := q.Svc.GetJob(userID, jobID)
+	if err != nil {
+		return hostops.Progress{}, fmt.Errorf("%w: %w", hostops.ErrNotFound, err)
+	}
+	return hostops.Progress{JobID: j.ID, Status: j.Status, Message: j.Message}, nil
+}
+
+func (q QuantizationProgress) StopJob(ctx context.Context, userID, jobID string, _ bool) error {
+	return q.Svc.StopJob(ctx, userID, jobID)
+}

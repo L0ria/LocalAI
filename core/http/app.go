@@ -568,6 +568,9 @@ func API(application *application.Application) (*echo.Echo, error) {
 	if err := application.RegisterAddonEngineJobs(localai.FineTuneJobs{Svc: ftService}, localai.QuantizationJobs{Svc: qService}, engineBackends); err != nil {
 		return nil, err
 	}
+	if err := application.RegisterAddonEngineProgress(localai.FineTuneProgress{Svc: ftService}, localai.QuantizationProgress{Svc: qService}); err != nil {
+		return nil, err
+	}
 
 	// Node management routes (distributed mode)
 	distCfg := application.ApplicationConfig().Distributed

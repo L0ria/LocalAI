@@ -67,6 +67,23 @@ func (a *Application) RegisterAddonEngineJobs(ft hostops.FineTuner, q hostops.Qu
 	return hostops.RegisterEngineJobs(a.addonHostOps.Broker, ft, q, backends)
 }
 
+// RegisterAddonEngineProgress registers the progress and stop operations over
+// the same services as RegisterAddonEngineJobs. The sources are wrapped in the
+// bounded-wait reader here; a nil source registers nothing for its kind.
+func (a *Application) RegisterAddonEngineProgress(ft, q hostops.ProgressSource) error {
+	if a.addonHostOps == nil {
+		return nil
+	}
+	var ftp, qp hostops.Progresser
+	if ft != nil {
+		ftp = hostops.NewProgresser(ft)
+	}
+	if q != nil {
+		qp = hostops.NewProgresser(q)
+	}
+	return hostops.RegisterEngineProgress(a.addonHostOps.Broker, ftp, qp)
+}
+
 // addonFeatureCheck answers whether an active account holds a feature, with
 // the same rule as the route middleware. Without an account database, or for
 // an account that is not active, the answer is no.
