@@ -2,11 +2,15 @@
 package hostops
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
@@ -238,5 +242,64 @@ func TestNilServicesRegisterNoOperation(t *testing.T) {
 	}
 	if ops := b.Ops(); len(ops) != 0 {
 		t.Fatalf("no service, no operation: %v", ops)
+	}
+}
+
+// serveEngine runs one engine operation through the broker's HTTP channel, as
+// the add-on process would call it, for a named user holding the features
+// that has allows. The jobs the fakes hold belong to u1 so that a call with
+// valid arguments answers 200 for an actor who holds the feature.
+func serveEngine(t *testing.T, op, args string, has func(user, feature string) bool) (int, contract.HostResponse) {
+	t.Helper()
+	ft := &fakeFT{jobs: map[string]*schema.FineTuneJob{"j1": {ID: "j1", UserID: "u1"}}}
+	q := &fakeQ{jobs: map[string]*schema.QuantizationJob{"q1": {ID: "q1", UserID: "u1"}}}
+	b := New(NewInFlight(), has, contract.DefaultLimits())
+	if err := RegisterEngineJobs(b, ft, q, backends{}); err != nil {
+		t.Fatal(err)
+	}
+	end := b.inflight.Begin(env("fine-tuning", "op1", "apply", time.Now().Add(time.Hour)))
+	defer end()
+	h := b.Handler("fine-tuning", "secret", []string{"finetune.", "quantize."})
+	body, _ := json.Marshal(contract.HostRequest{OperationID: "op1", Op: op, Arguments: json.RawMessage(args)})
+	req := httptest.NewRequest(http.MethodPost, "/host", bytes.NewReader(body))
+	req.Header.Set(contract.HostCredentialHeader, "secret")
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	var out contract.HostResponse
+	_ = json.Unmarshal(rec.Body.Bytes(), &out)
+	return rec.Code, out
+}
+
+// TestEachEngineOperationNeedsItsFeature checks every engine operation against
+// its own feature: refused without it, refused with only the other family's
+// feature, and answered when the actor holds the operation's feature.
+func TestEachEngineOperationNeedsItsFeature(t *testing.T) {
+	const fineTune, quant = "fine_tuning", "quantization"
+	cases := []struct {
+		op, args, feature, other string
+	}{
+		{"finetune.start", `{"model":"org/base","datasetSource":"org/data"}`, fineTune, quant},
+		{"finetune.get", `{"jobId":"j1"}`, fineTune, quant},
+		{"finetune.list", `{}`, fineTune, quant},
+		{"finetune.checkpoints", `{"jobId":"j1"}`, fineTune, quant},
+		{"quantize.start", `{"model":"org/base"}`, quant, fineTune},
+		{"quantize.get", `{"jobId":"q1"}`, quant, fineTune},
+		{"quantize.list", `{}`, quant, fineTune},
+	}
+	for _, c := range cases {
+		t.Run(c.op, func(t *testing.T) {
+			none := func(string, string) bool { return false }
+			if code, out := serveEngine(t, c.op, c.args, none); code != http.StatusForbidden || out.Error == nil || out.Error.Code != contract.HostFeature {
+				t.Fatalf("without any feature: %d %+v", code, out.Error)
+			}
+			otherOnly := func(_, f string) bool { return f == c.other }
+			if code, out := serveEngine(t, c.op, c.args, otherOnly); code != http.StatusForbidden || out.Error == nil || out.Error.Code != contract.HostFeature {
+				t.Fatalf("with only %s: %d %+v", c.other, code, out.Error)
+			}
+			ownOnly := func(_, f string) bool { return f == c.feature }
+			if code, out := serveEngine(t, c.op, c.args, ownOnly); code != http.StatusOK {
+				t.Fatalf("with %s: %d %+v", c.feature, code, out.Error)
+			}
+		})
 	}
 }
