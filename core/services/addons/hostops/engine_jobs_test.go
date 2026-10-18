@@ -303,3 +303,54 @@ func TestEachEngineOperationNeedsItsFeature(t *testing.T) {
 		})
 	}
 }
+
+// TestDatasetSourceMustBeAGalleryOrHuggingFaceID refuses a dataset reference
+// that is not an id, names the field, and never reaches the service.
+func TestDatasetSourceMustBeAGalleryOrHuggingFaceID(t *testing.T) {
+	bad := []string{
+		"https://example.com/data.jsonl", // URL
+		"hf://org/data",                  // scheme
+		"file:///etc/passwd",             // scheme and absolute path
+		"/var/data.jsonl",                // absolute path
+		"../data",                        // parent segment
+		"org/../data",                    // parent segment inside an id
+		"org/..",                         // parent segment at the end
+		"org data",                       // space
+		"org/data/extra",                 // more than one separator
+		`C:\data`,                        // backslash
+		"",                               // empty
+	}
+	for _, src := range bad {
+		ft := &fakeFT{}
+		s := specs(t, ft)
+		args, _ := json.Marshal(map[string]string{"model": "org/base", "datasetSource": src})
+		_, err := call(t, s["finetune.start"], "named-user", "u1", string(args))
+		if !errors.Is(err, ErrBadRequest) || !strings.Contains(err.Error(), "datasetSource") {
+			t.Fatalf("%q: want a bad request naming datasetSource, got %v", src, err)
+		}
+		if len(ft.started) != 0 {
+			t.Fatalf("%q reached the service", src)
+		}
+	}
+}
+
+// TestDatasetSourceRefusalIsA400NamingTheField checks the answer the add-on
+// process receives through the channel.
+func TestDatasetSourceRefusalIsA400NamingTheField(t *testing.T) {
+	code, out := serveEngine(t, "finetune.start", `{"model":"org/base","datasetSource":"https://example.com/d.jsonl"}`, func(string, string) bool { return true })
+	if code != http.StatusBadRequest || out.Error == nil || out.Error.Code != contract.HostBadRequest || !strings.Contains(out.Error.Message, "datasetSource") {
+		t.Fatalf("%d %+v", code, out.Error)
+	}
+}
+
+// TestDatasetSourceAcceptsHuggingFaceAndGalleryIDs keeps the ids the UI uses.
+func TestDatasetSourceAcceptsHuggingFaceAndGalleryIDs(t *testing.T) {
+	for _, src := range []string{"org/data", "HuggingFaceH4/ultrachat_200k", "my-dataset", "org/data-v1.0"} {
+		ft := &fakeFT{}
+		s := specs(t, ft)
+		args, _ := json.Marshal(map[string]string{"model": "org/base", "datasetSource": src})
+		if _, err := call(t, s["finetune.start"], "named-user", "u1", string(args)); err != nil {
+			t.Fatalf("%q: %v", src, err)
+		}
+	}
+}

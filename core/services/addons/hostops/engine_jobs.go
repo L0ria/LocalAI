@@ -100,8 +100,11 @@ func fineTuneSpecs(ft FineTuner, backends BackendLister) []Spec {
 			if err := decodeArgs(c.Arguments, &a); err != nil {
 				return nil, err
 			}
-			if !validRef(a.Model) || !validRef(a.DatasetSource) {
-				return nil, badRef("model and datasetSource must be a gallery or Hugging Face id")
+			if !validRef(a.Model) {
+				return nil, refusedField("model")
+			}
+			if !datasetID(a.DatasetSource) {
+				return nil, refusedField("datasetSource")
 			}
 			if a.LearningRate < 0 || a.NumEpochs < 0 || a.BatchSize < 0 || a.MaxSteps < 0 || a.AdapterRank < 0 || a.AdapterAlpha < 0 {
 				return nil, fmt.Errorf("%w: numeric arguments must not be negative", ErrBadRequest)
@@ -184,7 +187,7 @@ func quantizeSpecs(q Quantizer, backends BackendLister) []Spec {
 				return nil, err
 			}
 			if !validRef(a.Model) {
-				return nil, badRef("model must be a gallery or Hugging Face id")
+				return nil, refusedField("model")
 			}
 			if a.QuantizationType != "" && !quantType.MatchString(a.QuantizationType) {
 				return nil, fmt.Errorf("%w: quantizationType is not a quantization name", ErrBadRequest)
@@ -302,7 +305,20 @@ func validRef(s string) bool {
 		!strings.Contains(s, "..") && !strings.Contains(s, `\`)
 }
 
-func badRef(msg string) error { return fmt.Errorf("%w: %s", ErrBadRequest, msg) }
+// refusedField is the 400 answer for a reference field that is not an id. It
+// names the field, so the add-on can tell the model what to fix.
+func refusedField(field string) error {
+	return fmt.Errorf("%w: %s must be a gallery or Hugging Face id", ErrBadRequest, field)
+}
+
+// datasetID accepts a gallery or Hugging Face dataset id: a name, or an owner
+// and a name joined by one slash. A URL, a scheme, a path, a space or a parent
+// segment does not match.
+func datasetID(s string) bool {
+	return len(s) <= maxRefBytes && datasetIDPattern.MatchString(s)
+}
+
+var datasetIDPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*(/[A-Za-z0-9][A-Za-z0-9._-]*)?$`)
 
 var quantType = regexp.MustCompile(`^[a-z0-9_]{1,32}$`)
 

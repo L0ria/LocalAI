@@ -189,7 +189,9 @@ func (b *Broker) Handler(addonID, credential string, allowed []string) http.Hand
 			case errors.Is(err, ErrConflict):
 				status, code, msg = http.StatusConflict, contract.HostConflict, "conflict"
 			case errors.Is(err, ErrBadRequest):
-				status, code, msg = http.StatusBadRequest, contract.HostBadRequest, "invalid request"
+				// The message names the refused field. Handlers build it from
+				// fixed text and field names, never from a server path.
+				status, code, msg = http.StatusBadRequest, contract.HostBadRequest, err.Error()
 			}
 			refuse(w, status, code, msg)
 			return
